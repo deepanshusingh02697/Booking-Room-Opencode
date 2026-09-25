@@ -3,8 +3,8 @@
 > Persistent AI handoff document. Update this file whenever the project state changes
 > so a new OpenCode session or model can continue development without re-discovering context.
 
-Last updated: 2026-09-25
-Repo: `Book-MeetingRoom` (branch `main`)
+Last updated: 2026-09-25 (end of Phase 3 session)
+Repo: `Book-MeetingRoom` (branch `main`, working tree clean, **2 commits ahead of `origin/main` — NOT pushed**)
 
 ---
 
@@ -32,7 +32,7 @@ Feature-driven phases: every phase delivers one feature end-to-end (backend + fr
 │   ├── scripts/         migrate.ts, migrate-revert.ts (custom runners)
 │   └── src/
 │       ├── config/       env.ts, data-source.ts
-│       ├── common/       context.ts, health-resolver.ts, errors/, logger.ts
+│       ├── common/       context.ts, auth-checker.ts, health-resolver.ts, errors/, logger.ts
 │       ├── modules/      per-feature module folders (see §6)
 │       ├── jobs/         registry.ts (cron skeleton)
 │       ├── migrations/   typeorm migrations
@@ -83,6 +83,10 @@ Backend endpoints: `http://localhost:4000/health`, `http://localhost:4000/graphq
 
 `backend/.env` is gitignored; `.env.example` is committed (includes a real local dev DB URL — OK for local work).
 
+Demo credentials (from seed):
+- Employee: `aarav@mri.com` / `Employee@123` (also priya/rohan/sara @mri.com)
+- Admin: `admin@mri.com` / `Admin@123`
+
 ## 5. Current Status (verified 2026-09-25)
 
 ### Phase 1 — Project Foundation: ✅ DONE
@@ -94,7 +98,7 @@ Backend endpoints: `http://localhost:4000/health`, `http://localhost:4000/graphq
   shared components (Button, Modal, LoadingState, EmptyState, ErrorState, StatusBadge) and form components
   (Input, Select, DateTimePicker). All routes are `PlaceholderPage`.
 
-### Phase 2 — Database Design: ✅ DONE + validated
+### Phase 2 — Database Design: ✅ DONE + validated (commit `7a6d9e4`)
 - DataSource with `synchronize: false`, entities ↔ migration ↔ live DB verified identical
 - Migration `1730000000000-CreateInitialSchema` — all 9 tables + enums + constraints + indexes
 - Migration `1730000000001-AddWaitlistUniqueConstraint` — DB-level FR-35 guarantee
@@ -104,7 +108,7 @@ Backend endpoints: `http://localhost:4000/health`, `http://localhost:4000/graphq
   6 participants, 1 check-in, 1 waitlist entry, 2 maintenance windows
 - Server boots, connects to DB, `/health` and GraphQL health query confirmed
 
-### Phase 3 — Authentication & Roles: ✅ DONE (verified 2026-09-25)
+### Phase 3 — Authentication & Roles: ✅ DONE (verified 2026-09-25, commit `dd8f4af`)
 - Backend `modules/auth/`: `utils/password.ts` (bcrypt), `utils/jwt.ts` (sign/verify + cookie
   maxAge from `JWT_EXPIRES_IN`), `repositories/employee-repository.ts`, DTOs
   (`sign-up-input`, `log-in-input`, `admin-login-input`, `employee-type` output type),
@@ -133,10 +137,15 @@ Backend endpoints: `http://localhost:4000/health`, `http://localhost:4000/graphq
 
 ### Phase 4 — Rooms: ⬜ NOT STARTED (next)
 
+Current GraphQL surface (`schema.ts`):
+- Query: `health`, `currentUser` (auth required)
+- Mutation: `signUp`, `logIn`, `adminLogin`, `logout`
+- Enum `UserRole` registered via `registerEnumType` in `schema.ts`
+
 ## 6. Modules & Data Model
 
-Module folders under `backend/src/modules/` (each: dto/, entities/, repositories/, resolvers/, services/, utils/).
-Currently only `entities/` populated.
+Module folders under `backend/src/modules/` (each: dto/, entities/, repositories/, resolvers/, services/, utils/, index.ts).
+**auth** is fully layered (all folders). All other modules currently have only `entities/` populated.
 
 | Entity | Table | Notes |
 |---|---|---|
@@ -159,6 +168,9 @@ Note: `requirement.md` data model also lists `PasswordResetToken` — **out of s
   - Service never touches the DB directly (goes through repository)
   - Frontend only talks to backend via GraphQL
 - Enums are exported from entity files (e.g., `UserRole`, `RoomStatus`, `BookingStatus`).
+- Protected resolvers use `@Authorized()` / `@Authorized(UserRole.ADMIN)` (checker: `common/auth-checker.ts`);
+  services re-check auth/roles themselves so they stay safe when called directly.
+- Session: httpOnly cookie named `token` (JWT payload `{ id, role }`), set/cleared in resolvers via context.
 - Errors: `ApplicationError` subclasses (`UnauthenticatedError`, `ForbiddenError`, `NotFoundError`,
   `ConflictError`, `ValidationError`) with codes in `common/errors/`.
 - CJS backend (`no "type": "module"`), `module: nodenext`, `emitDecoratorMetadata: true` (in root `tsconfig.base.json`).
