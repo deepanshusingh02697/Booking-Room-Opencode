@@ -4,7 +4,7 @@
 > so a new OpenCode session or model can continue development without re-discovering context.
 
 Last updated: 2026-09-25 (end of Phase 3 session)
-Repo: `Book-MeetingRoom` (branch `main`, working tree clean, **2 commits ahead of `origin/main` — NOT pushed**)
+Repo: `Book-MeetingRoom` (branch `main`, working tree clean; local commits **NOT pushed** to `origin/main` — check `git status -sb` for the exact count)
 
 ---
 
