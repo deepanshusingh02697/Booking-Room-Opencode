@@ -12,7 +12,7 @@ The Meeting Room Intelligence is a full stack application designed to streamline
 ## 2. Core Features
 
 - **Role-Based Access Control:** Provide distinct capabilities for admin and employees with authorization for desired data by using GraphQL API calls.
-- **Forgot Password:** Enable forgot password via email and send the mail for changing password by using node-mailer.
+- **Forgot Password:** ~~Enable forgot password via email and send the mail for changing password by using node-mailer.~~ **OUT OF SCOPE for this build** (decision 2026-09-25; FR-6/FR-7 will not be implemented).
 - **Room Search & Availability:** Enables filtering rooms by date, time, capacity, floor, equipment, and status, returning rooms according to request data.
 - **Advanced Booking Engine:** Enforce business constraints including time-overlap prevention, room capacity checks, room status checks and past-date rejection.
 - **Double Booking Prevention:** Guards against concurrent bookings when two employees attempt to book the same room and slot simultaneously, ensuring only one booking at database level.
@@ -34,8 +34,8 @@ The Meeting Room Intelligence is a full stack application designed to streamline
 - **FR-3:** System shall provide a separate AdminLogin mutation that verifies the account role is ADMIN before issuing a session cookie, rejecting the credentials otherwise.
 - **FR-4:** System shall allow a user to log out, clearing the session cookie.
 - **FR-5:** System shall expose a CurrentUser query returning the authenticated user's profile from the session.
-- **FR-6:** System shall allow a user to request a password reset by email; a random token is generated, hashed with SHA-256, remain with a 10-minute expiry, and emailed via a reset link, without revealing whether the email exists.
-- **FR-7:** System shall allow a user to complete a password reset using a valid, unused, unexpired token, updating the password hash and marking the token as used within a single transaction.
+- **FR-6:** ~~System shall allow a user to request a password reset by email; a random token is generated, hashed with SHA-256, remain with a 10-minute expiry, and emailed via a reset link, without revealing whether the email exists.~~ **OUT OF SCOPE for this build** (decision 2026-09-25).
+- **FR-7:** ~~System shall allow a user to complete a password reset using a valid, unused, unexpired token, updating the password hash and marking the token as used within a single transaction.~~ **OUT OF SCOPE for this build** (decision 2026-09-25).
 
 ### 3.2 Room Search & Availability
 

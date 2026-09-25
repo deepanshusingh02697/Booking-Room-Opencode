@@ -55,6 +55,8 @@ Feature-based modules, each split into layers: Resolver → Service → Reposito
 - `doc/requirement.md` — full requirements and business rules
 - `doc/plan.md` — implementation plan and folder structure
 
-## Work in Progress
+## Status
 
-No code written yet. Project foundation is the next step (Phase 1).
+- **Phase 1 — Project foundation:** done. Backend (`/health`, GraphQL at `/graphql`) and frontend run together.
+- **Phase 2 — Database design:** done. Migrations and seed data load against PostgreSQL.
+- **Phase 3 — Authentication & roles:** next.

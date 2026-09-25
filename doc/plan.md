@@ -31,7 +31,7 @@ These are not new technology choices. They are the minimum packages the stack ab
 | pg                       | PostgreSQL driver for TypeORM                                  |
 | cors, cookie-parser      | Cross-origin requests and reading the JWT from an httpOnly cookie |
 | dotenv                   | Loading environment variables                                  |
-| tsx                      | Running TypeScript in development                               |
+| ts-node                | Running TypeScript in development (emits decorator metadata required by TypeORM/TypeGraphQL) |
 | Vite                     | Build tool and dev server for the React app                     |
 
 ---
