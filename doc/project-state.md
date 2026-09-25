@@ -52,7 +52,7 @@ Feature-driven phases: every phase delivers one feature end-to-end (backend + fr
 | DB | PostgreSQL + `pg` | TypeORM, `synchronize: false` |
 | Runtime for TS | **`ts-node` (backend)** | **IMPORTANT:** was `tsx`, switched 2026-09-25 — see §8 |
 | Real time | Socket.io | **not yet wired** (Phase 13) |
-| Security/Automation | JWT, bcryptjs, class-validator, node-cron | packages installed, not implemented yet |
+| Security/Automation | JWT, bcryptjs, class-validator, node-cron | auth implemented (Phase 3); node-cron jobs not yet used |
 | Monorepo | Turborepo 2 (npm workspaces) | |
 
 ## 4. How to Run
@@ -104,7 +104,34 @@ Backend endpoints: `http://localhost:4000/health`, `http://localhost:4000/graphq
   6 participants, 1 check-in, 1 waitlist entry, 2 maintenance windows
 - Server boots, connects to DB, `/health` and GraphQL health query confirmed
 
-### Phase 3 — Authentication & Roles: ⬜ NOT STARTED (next)
+### Phase 3 — Authentication & Roles: ✅ DONE (verified 2026-09-25)
+- Backend `modules/auth/`: `utils/password.ts` (bcrypt), `utils/jwt.ts` (sign/verify + cookie
+  maxAge from `JWT_EXPIRES_IN`), `repositories/employee-repository.ts`, DTOs
+  (`sign-up-input`, `log-in-input`, `admin-login-input`, `employee-type` output type),
+  `services/auth-service.ts`, `resolvers/auth-resolver.ts`, `index.ts`
+- Mutations: `signUp` (dup email → CONFLICT, auto-login cookie), `logIn` (role=EMPLOYEE only),
+  `adminLogin` (role=ADMIN only), `logout` (clears cookie); Query: `currentUser` (`@Authorized()`)
+- `common/auth-checker.ts` wired into `buildSchema` (`@Authorized()` → UNAUTHENTICATED,
+  `@Authorized(UserRole.ADMIN)` → FORBIDDEN); services re-check auth themselves
+- `common/context.ts` refactored: `UserRole` now single-sourced from the entity; token
+  verify moved to `auth/utils/jwt.ts`; cookie name is `token`
+- `server.ts` has an Apollo `formatError` that strips TypeGraphQL's raw `validationErrors`
+  (they echoed submitted input incl. password) and renders readable constraint messages
+- Frontend: `types/` (UserRole/Employee), `graphql/queries|mutations/auth.ts`,
+  `context/AuthContext.tsx` + `hooks/useAuth.ts`, `pages/login/LoginPage.tsx`
+  (login/register toggle + "Sign in as administrator" checkbox),
+  `routes/ProtectedRoute.tsx` + `AdminRoute.tsx` (route table restructured; `/admin/*` gated),
+  Navbar shows user + role + logout, Sidebar hides admin links for employees,
+  **`ApolloProvider` added in `main.tsx`** (was never mounted before),
+  `utils/errors.ts` (`getGraphQLErrorMessage`)
+- **Verified live:** anonymous → UNAUTHENTICATED; employee login/session/currentUser OK;
+  employee creds rejected by `adminLogin` and admin creds rejected by `logIn` (generic message);
+  signUp/duplicate/validator errors OK; logout clears session; Vite proxy `/graphql` OK;
+  `npm run typecheck` passes both workspaces
+- Full `@Authorized('ADMIN')` gating gets its first real targets in Phase 4 (no admin-only
+  operations existed before now)
+
+### Phase 4 — Rooms: ⬜ NOT STARTED (next)
 
 ## 6. Modules & Data Model
 
@@ -160,7 +187,10 @@ Note: `requirement.md` data model also lists `PasswordResetToken` — **out of s
 8. Run `npm run typecheck` after meaningful backend or frontend changes. `npm install` sometimes
    refreshes turbo cache hashes (creates new `.turbo/cache/*` files — ignored).
 9. There may be stale background servers from a sibling folder (`MeetingRoom-Intelligence`) on this machine;
-   they are unrelated and can hold ports 4000/5173.
+   they are unrelated and can hold ports 4000/5173. (Current session stopped its dev servers cleanly —
+   ports were free at Phase 3 close.)
+10. Dev-only: Apollo includes `stacktrace` in GraphQL error extensions when `NODE_ENV=development`.
+    Production would omit it (Phase 14 hardening).
 
 ## 9. Pending Decisions / Next Steps
 
@@ -170,11 +200,12 @@ Note: `requirement.md` data model also lists `PasswordResetToken` — **out of s
 - **Phase 2 committed as a checkpoint** before starting Phase 3.
 - `doc/plan.md` runner reference fixed (`tsx` → `ts-node`).
 
-**Phase 3 backlog (from plan.md):**
-- Resolvers/services: SignUp, LogIn, AdminLogin, Logout, CurrentUser
-- bcrypt hashing, JWT in httpOnly cookie, TypeGraphQL auth checker + `@Authorized` on resolvers
-- Ownership/role checks in services (not just resolvers); `class-validator` on every input
-- Frontend: Login page, AuthContext, ProtectedRoute / AdminRoute
+**Phase 4 backlog (from plan.md):**
+- Room CRUD (create/update/disable/reenable/list/details, reject duplicate names) — admin
+- Room search: filter by status, capacity, floor, equipment (FR-8/9/10)
+- Availability: exclude overlapping CONFIRMED bookings or maintenance windows
+- Frontend: Room Directory + RoomFilters, Room Details, Admin Rooms + RoomForm
+- First real `@Authorized(UserRole.ADMIN)` resolvers land here
 
 ## 10. Verification Checklist Before Starting New Work
 

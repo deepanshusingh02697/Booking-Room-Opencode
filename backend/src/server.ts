@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import http from 'http';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
+import type { GraphQLFormattedError } from 'graphql';
 import { env } from './config/env';
 import { AppDataSource } from './config/data-source';
 import { createSchema } from './schema';
@@ -12,13 +13,46 @@ import { buildContext, AppContext } from './common/context';
 import { logger } from './common/logger';
 import { startJobs, stopJobs } from './jobs/registry';
 
+interface ValidationFailure {
+  property: string;
+  constraints?: Record<string, string>;
+}
+
+const formatError = (error: GraphQLFormattedError): GraphQLFormattedError => {
+  const validationErrors = error.extensions?.validationErrors as
+    | ValidationFailure[]
+    | undefined;
+
+  if (validationErrors) {
+    const messages = validationErrors.flatMap((failure) =>
+      Object.values(failure.constraints ?? {}),
+    );
+    return {
+      ...error,
+      message:
+        messages.length > 0
+          ? messages.join(' ')
+          : 'One or more fields are invalid.',
+      extensions: {
+        ...error.extensions,
+        validationErrors: validationErrors.map((failure) => ({
+          property: failure.property,
+          constraints: failure.constraints,
+        })),
+      },
+    };
+  }
+
+  return error;
+};
+
 const startServer = async () => {
   await AppDataSource.initialize();
   logger.info('Database connected');
 
   const app = express();
   const schema = await createSchema();
-  const apollo = new ApolloServer({ schema });
+  const apollo = new ApolloServer({ schema, formatError });
 
   await apollo.start();
 

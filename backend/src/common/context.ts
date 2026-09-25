@@ -1,17 +1,10 @@
 import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
-import { env } from '../config/env';
-
-export const UserRole = {
-  EMPLOYEE: 'EMPLOYEE',
-  ADMIN: 'ADMIN',
-} as const;
-
-export type UserRoleType = (typeof UserRole)[keyof typeof UserRole];
+import { UserRole } from '../modules/auth/entities/employee';
+import { verifyToken } from '../modules/auth/utils/jwt';
 
 export interface AuthUser {
   id: number;
-  role: UserRoleType;
+  role: UserRole;
 }
 
 export interface AppContext {
@@ -27,18 +20,10 @@ const cookieToToken = (req: Request): string | null => {
 
 export const buildContext = ({ req, res }: { req: Request; res: Response }): AppContext => {
   const token = cookieToToken(req);
-
-  let user: AuthUser | null = null;
-  if (token) {
-    try {
-      const decoded = jwt.verify(token, env.JWT_SECRET) as { id: number; role: UserRoleType };
-      if (typeof decoded.id === 'number' && decoded.role) {
-        user = { id: decoded.id, role: decoded.role };
-      }
-    } catch {
-      user = null;
-    }
-  }
-
-  return { req, res, user };
+  const payload = token ? verifyToken(token) : null;
+  return {
+    req,
+    res,
+    user: payload ? { id: payload.id, role: payload.role } : null,
+  };
 };
