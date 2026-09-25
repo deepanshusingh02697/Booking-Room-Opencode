@@ -39,7 +39,7 @@ const main = async () => {
     employeeRepo.create({
       firstName: 'Deepanshu',
       lastName: 'Singh',
-      email: 'admin@mri.com',
+      email: 'admin@gmail.com',
       password: await hashPassword('Admin@123'),
       role: UserRole.ADMIN,
     }),

@@ -4,7 +4,7 @@
 > so a new OpenCode session or model can continue development without re-discovering context.
 
 Last updated: 2026-09-25 (end of Phase 3 session)
-Repo: `Book-MeetingRoom` (branch `main`, working tree clean; local commits **NOT pushed** to `origin/main` — check `git status -sb` for the exact count)
+Repo: `Book-MeetingRoom` (branch `main`, working tree clean)
 
 ---
 
@@ -203,6 +203,8 @@ Note: `requirement.md` data model also lists `PasswordResetToken` — **out of s
    ports were free at Phase 3 close.)
 10. Dev-only: Apollo includes `stacktrace` in GraphQL error extensions when `NODE_ENV=development`.
     Production would omit it (Phase 14 hardening).
+11. **Git is managed manually by the user.** Do NOT commit, push, or create PRs from an AI
+    session — the user handles all git operations themselves.
 
 ## 9. Pending Decisions / Next Steps
 

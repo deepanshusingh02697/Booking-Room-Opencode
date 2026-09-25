@@ -2,7 +2,7 @@
 
 **Project type:** Full-stack meeting-room booking system
 **Source of truth:** doc/requirement.md
-**Status:** Planning document — no code has been written yet.
+**Status:** Phases 1–3 implemented. Phases 4 onward restructured below: full backend for every remaining feature first, then frontend for every feature (wiring the UI to the already-built API, with backend touch-ups called out where wiring usually surfaces a gap).
 
 ## Scope Note
 
@@ -347,10 +347,6 @@ frontend/
 
 ---
 
-## 4. Feature-Wise Phases
-
-The project is built feature by feature. Every phase delivers one feature **end-to-end** (backend + frontend together), so the work can be verified as it ships.
-
 ### Phase 1 — Project Foundation
 
 **What we build:** An empty but working full-stack skeleton.
@@ -407,24 +403,36 @@ The project is built feature by feature. Every phase delivers one feature **end-
 **Deliverable:** Secure API + login UI.
 **Done when:** Anonymous calls return UNAUTHENTICATED; an employee cannot call admin-only operations.
 
-### Phase 4 — Rooms
 
-**What we build:** Room search, filters, availability and admin room management.
+## 4. Phases
+
+Phases 1–3 (Project Foundation, Database Design, Authentication & Roles) are **already implemented and unchanged** — see the original scope: workspace + Express/Apollo skeleton, full TypeORM data model + migrations + seed, and JWT login/roles with the matching auth UI.
+
+From Phase 4 onward, the plan is split into two tracks instead of interleaving backend and frontend per feature:
+
+- **Backend track (Phases 4–13):** build every remaining module's resolvers/services/repositories/entities, feature by feature, verified through GraphQL Playground/Postman only. No frontend work happens here.
+- **Frontend track (Phases 14–23):** wire the UI to each already-built module, one feature per phase, in the same order as the backend track. Each frontend phase starts with a short "Backend adjustments" step, because wiring a real UI to a real API is exactly when a missing field resolver, a shape mismatch, or a missing filter turns up — those go back into the backend module, not into a new module.
+- **Phases 24–25:** hardening/tests and documentation, unchanged in spirit from before.
+
+This means the whole API surface (through notifications) exists and is testable before any more UI is written, and then the UI is built once, feature by feature, against a stable backend.
+
+---
+
+### BACKEND TRACK
+
+### Phase 4 — Rooms (Backend)
+
+**What we build:** Room management, search and availability.
 
 **Backend tasks:**
 - Room CRUD: create/update/disable/reenable/list/details (reject duplicate names).
 - Room search: filter by status, capacity, floor, equipment.
 - Availability: exclude rooms with overlapping CONFIRMED bookings or maintenance windows.
 
-**Frontend tasks:**
-- Room Directory page + RoomFilters.
-- Room Details page.
-- Admin Rooms page + RoomForm.
+**Deliverable:** Room API complete and verified via GraphQL Playground.
+**Done when:** You can filter rooms and see which are free for a selected slot, entirely through queries/mutations — no UI needed yet.
 
-**Deliverable:** Browsable, searchable room catalog.
-**Done when:** You can filter rooms and see which are free for a selected slot.
-
-### Phase 5 — Equipment (Integrated with Rooms)
+### Phase 5 — Equipment (Backend)
 
 **What we build:** Equipment records and their assignment to rooms.
 
@@ -433,31 +441,22 @@ The project is built feature by feature. Every phase delivers one feature **end-
 - Assign/remove equipment to a room (reject duplicates and no-op removals).
 - Room field resolver returns equipment list on demand.
 
-**Frontend tasks:**
-- EquipmentManager in Admin Rooms.
-- Equipment shown on Room Directory cards and Room Details.
-- Equipment appear in search filters.
+**Deliverable:** Equipment API complete, rooms return equipment via field resolver.
+**Done when:** You can assign equipment to a room and see it returned in a room query, and filter room search by equipment.
 
-**Deliverable:** Rooms carry equipment end-to-end.
-**Done when:** You can assign equipment to a room and it appears in search results when filtered by it.
+### Phase 6 — Core Booking (Backend)
 
-### Phase 6 — Core Booking (The Heart)
-
-**What we build:** Single booking creation with every rule enforced.
+**What we build:** Single booking creation with every rule enforced — the heart of the system.
 
 **Backend tasks:**
 - createBooking with rules: start before end, not in the past, capacity enough, room AVAILABLE, no overlap with CONFIRMED bookings or maintenance.
 - **Double-booking prevention:** run create inside a Serializable transaction with a bounded retry so two simultaneous requests cannot both succeed (database-level guarantee).
-- Emit notification to participants on creation.
+- Emit notification to participants on creation (stub is fine until Phase 13 wires real notifications).
 
-**Frontend tasks:**
-- Create Booking page: room selector, date/time picker, title/description, ParticipantPicker.
-- Capacity and availability feedback before submit.
-
-**Deliverable:** The rule engine works.
+**Deliverable:** The rule engine works, provable via API calls alone.
 **Done when:** createBooking rejects overlap/past/capacity/maintenance, and the concurrent double-booking test passes.
 
-### Phase 7 — Manage Bookings & Cancellation
+### Phase 7 — Manage Bookings & Cancellation (Backend)
 
 **What we build:** Viewing and cancelling bookings.
 
@@ -465,17 +464,12 @@ The project is built feature by feature. Every phase delivers one feature **end-
 - MyBookings (organized by user, most recent first).
 - MyMeetings (upcoming CONFIRMED where user is organizer or participant).
 - BookingDetails (restricted to organizer, participant or admin).
-- cancelBooking (owner or admin, enforcing the cancellation window); waitlist conversion triggered on cancel.
+- cancelBooking (owner or admin, enforcing the cancellation window); waitlist conversion hook (completed in Phase 10).
 
-**Frontend tasks:**
-- My Bookings page (upcoming + past).
-- Booking Details page.
-- Cancel confirmation modal.
+**Deliverable:** Full booking management API.
+**Done when:** You can query and cancel your own bookings via the API; cancelling someone else's is rejected.
 
-**Deliverable:** Full booking management.
-**Done when:** You can view and cancel your own bookings; cancelling someone else's is rejected.
-
-### Phase 8 — Recurring Meetings
+### Phase 8 — Recurring Meetings (Backend)
 
 **What we build:** Recurring booking series.
 
@@ -484,14 +478,10 @@ The project is built feature by feature. Every phase delivers one feature **end-
 - Validate no generated occurrence overlaps another, and no occurrence conflicts with existing bookings/maintenance, inside one transaction.
 - RecurringBookingGroup query (organizer, participant, or admin).
 
-**Frontend tasks:**
-- Recurrence option in Create Booking.
-- Recurrence group view in Booking Details.
+**Deliverable:** Recurring bookings with atomic validation, API-complete.
+**Done when:** A recurring series saves all occurrences together and conflicts across occurrences are rejected — verified via API calls.
 
-**Deliverable:** Recurring bookings with atomic validation.
-**Done when:** A recurring series saves all occurrences together and conflicts across occurrences are rejected.
-
-### Phase 9 — Check-in & No-show
+### Phase 9 — Check-in & No-show (Backend)
 
 **What we build:** Check-in window and automatic room release.
 
@@ -501,14 +491,10 @@ The project is built feature by feature. Every phase delivers one feature **end-
 - `no-show-release` cron (every minute): release rooms with no check-in 10 minutes after start.
 - `booking-completion` cron: mark finished bookings as completed.
 
-**Frontend tasks:**
-- Check-in button shown only inside the window on Booking Details.
-- Status updates on My Bookings.
+**Deliverable:** Check-in mutation + release job, both API/scheduler-level.
+**Done when:** No check-in within 10 minutes releases the room (verified via the scheduler and a follow-up query), independent of any UI.
 
-**Deliverable:** Check-in flow + release job.
-**Done when:** No check-in within 10 minutes releases the room (verified via the scheduler).
-
-### Phase 10 — Waiting List
+### Phase 10 — Waitlist (Backend)
 
 **What we build:** Waitlist join/leave and automatic conversion.
 
@@ -516,16 +502,12 @@ The project is built feature by feature. Every phase delivers one feature **end-
 - Join waitlist only when the slot is genuinely unavailable (overlapping confirmed booking) and not maintenance-blocked.
 - Reject duplicates; user can remove only their own entry.
 - MyWaitlist query (order joined).
-- FIFO auto-conversion when a booking cancels or a room is released as no-show.
+- FIFO auto-conversion when a booking cancels or a room is released as no-show (wires into the Phase 7 cancel hook and Phase 9 release job).
 
-**Frontend tasks:**
-- Join/leave buttons when a slot is taken.
-- Waitlist indicator on Room Details and My Bookings.
+**Deliverable:** Working waitlist chain, API-complete.
+**Done when:** Cancelling a booking automatically books the first waiting user — verified via API calls.
 
-**Deliverable:** Working waitlist chain.
-**Done when:** Cancelling a booking automatically books the first waiting user.
-
-### Phase 11 — Maintenance Management
+### Phase 11 — Maintenance Management (Backend)
 
 **What we build:** Maintenance windows for rooms (admin).
 
@@ -534,14 +516,10 @@ The project is built feature by feature. Every phase delivers one feature **end-
 - Delete maintenance record.
 - RoomMaintenance query (chronological order).
 
-**Frontend tasks:**
-- Maintenance section in Admin Rooms.
-- Maintenance shown as unavailable in Room Details/Search.
+**Deliverable:** Maintenance blocks availability at the API level.
+**Done when:** A room under maintenance is excluded from search and cannot be booked, verified via API calls.
 
-**Deliverable:** Maintenance blocks availability.
-**Done when:** A room under maintenance is excluded from search and cannot be booked.
-
-### Phase 12 — Admin Calendar & Analytics
+### Phase 12 — Admin Calendar & Analytics (Backend)
 
 **What we build:** Office-wide visibility and usage information (admin).
 
@@ -549,30 +527,145 @@ The project is built feature by feature. Every phase delivers one feature **end-
 - AdminCalendar query (all bookings overlapping a date range across every room).
 - UsageAnalytics query (total bookings, cancellations, no-shows per room for a date range).
 
+**Deliverable:** Admin-facing queries complete.
+**Done when:** Admin can fetch office-wide bookings and per-room usage stats via the API.
+
+### Phase 13 — Real-time Notifications (Backend)
+
+**What we build:** Live notifications via Socket.io — the last backend module, closing out every stubbed notification from earlier phases.
+
+**Backend tasks:**
+- Socket.io server with cookie handshake auth and per-user room joins.
+- Emit events on booking creation, participant add/remove, check-in and waitlist conversion (replacing the stubs from Phases 6, 9, 10).
+
+**Deliverable:** Live notification events, testable with a Socket.io client script.
+**Done when:** Adding a participant triggers their event in real time, confirmed with a bare socket client (no UI yet).
+
+**Backend track checkpoint:** the entire GraphQL + Socket.io API now exists and has been exercised directly. Everything from here is frontend, feature by feature, in the same order.
+
+---
+
+### FRONTEND TRACK
+
+### Phase 14 — Rooms (Frontend)
+
+**Backend adjustments (if needed):** confirm the search/availability query shapes match what filters the UI actually needs (e.g. combined floor+capacity+equipment in one query) before building the pages.
+
+**Frontend tasks:**
+- Room Directory page + RoomFilters.
+- Room Details page.
+- Admin Rooms page + RoomForm.
+
+**Deliverable:** Browsable, searchable room catalog.
+**Done when:** You can filter rooms and see which are free for a selected slot, through the UI.
+
+### Phase 15 — Equipment (Frontend)
+
+**Backend adjustments (if needed):** check the equipment field resolver returns everything the EquipmentManager UI needs in one round trip.
+
+**Frontend tasks:**
+- EquipmentManager in Admin Rooms.
+- Equipment shown on Room Directory cards and Room Details.
+- Equipment appear in search filters.
+
+**Deliverable:** Rooms carry equipment end-to-end in the UI.
+**Done when:** You can assign equipment to a room and it appears in search results when filtered by it.
+
+### Phase 16 — Core Booking (Frontend)
+
+**Backend adjustments (if needed):** add any lightweight "is this slot free" query the create-booking form needs for live feedback, if createBooking's error alone isn't enough for good UX.
+
+**Frontend tasks:**
+- Create Booking page: room selector, date/time picker, title/description, ParticipantPicker.
+- Capacity and availability feedback before submit.
+
+**Deliverable:** The rule engine is usable end-to-end.
+**Done when:** A user can hit every createBooking rule (overlap/past/capacity/maintenance) from the UI and see a clear error, and the concurrent double-booking guarantee still holds underneath.
+
+### Phase 17 — Manage Bookings & Cancellation (Frontend)
+
+**Backend adjustments (if needed):** none expected — this phase mainly consumes Phase 7's queries as-is.
+
+**Frontend tasks:**
+- My Bookings page (upcoming + past).
+- Booking Details page.
+- Cancel confirmation modal.
+
+**Deliverable:** Full booking management in the UI.
+**Done when:** You can view and cancel your own bookings; cancelling someone else's is rejected with a clear message.
+
+### Phase 18 — Recurring Meetings (Frontend)
+
+**Backend adjustments (if needed):** verify RecurringBookingGroup returns enough per-occurrence detail for the group view without N+1 queries.
+
+**Frontend tasks:**
+- Recurrence option in Create Booking.
+- Recurrence group view in Booking Details.
+
+**Deliverable:** Recurring bookings usable end-to-end.
+**Done when:** A user can create a recurring series from the UI and see conflicts across occurrences rejected clearly.
+
+### Phase 19 — Check-in & No-show (Frontend)
+
+**Backend adjustments (if needed):** none expected — mostly a matter of exposing the check-in window bounds on the booking type if not already present.
+
+**Frontend tasks:**
+- Check-in button shown only inside the window on Booking Details.
+- Status updates on My Bookings.
+
+**Deliverable:** Check-in flow visible end-to-end.
+**Done when:** No check-in within 10 minutes releases the room and the UI reflects the new status.
+
+### Phase 20 — Waitlist (Frontend)
+
+**Backend adjustments (if needed):** none expected — consumes Phase 10's queries/mutations as-is.
+
+**Frontend tasks:**
+- Join/leave buttons when a slot is taken.
+- Waitlist indicator on Room Details and My Bookings.
+
+**Deliverable:** Working waitlist chain in the UI.
+**Done when:** Cancelling a booking automatically books the first waiting user and the UI shows the new booking.
+
+### Phase 21 — Maintenance Management (Frontend)
+
+**Backend adjustments (if needed):** none expected — consumes Phase 11's queries/mutations as-is.
+
+**Frontend tasks:**
+- Maintenance section in Admin Rooms.
+- Maintenance shown as unavailable in Room Details/Search.
+
+**Deliverable:** Maintenance blocks availability in the UI.
+**Done when:** A room under maintenance is excluded from search and cannot be booked, visibly.
+
+### Phase 22 — Admin Calendar & Analytics (Frontend)
+
+**Backend adjustments (if needed):** confirm AdminCalendar/UsageAnalytics support whatever date-range controls the UI exposes.
+
 **Frontend tasks:**
 - Admin Calendar page.
 - Analytics page with basic stats.
 
-**Deliverable:** Admin oversight.
-**Done when:** Admin sees office-wide bookings and per-room usage stats.
+**Deliverable:** Admin oversight in the UI.
+**Done when:** Admin sees office-wide bookings and per-room usage stats on screen.
 
-### Phase 13 — Real-time Notifications
+### Phase 23 — Real-time Notifications (Frontend)
 
-**What we build:** Live notifications via Socket.io.
-
-**Backend tasks:**
-- Socket.io server with cookie handshake auth and per-user room joins.
-- Emit events on booking creation, participant add/remove, check-in and waitlist conversion.
+**Backend adjustments (if needed):** none expected — consumes Phase 13's socket events as-is.
 
 **Frontend tasks:**
 - Socket.io client with credentials.
 - NotificationBell + useNotifications hook.
 - Refetch queries on relevant events.
 
-**Deliverable:** Live notifications.
-**Done when:** Adding a participant triggers their notification in real time.
+**Deliverable:** Live notifications in the UI.
+**Done when:** Adding a participant triggers their notification in real time, visibly.
 
-### Phase 14 — Hardening & Tests
+**Frontend track checkpoint:** every feature now has a working UI wired to the already-proven backend, in the same order the backend was built.
+
+---
+
+### Phase 24 — Hardening & Tests
 
 **What we build:** Tests for the critical rules, plus a security/performance pass.
 
@@ -587,7 +680,7 @@ The project is built feature by feature. Every phase delivers one feature **end-
 **Deliverable:** Trustworthy, fast app.
 **Done when:** All tests pass and the security/performance checklist is closed.
 
-### Phase 15 — Documentation & Delivery
+### Phase 25 — Documentation & Delivery
 
 **What we build:** Runnable from a fresh clone.
 
@@ -605,13 +698,11 @@ The project is built feature by feature. Every phase delivers one feature **end-
 **Deliverable:** Final submission.
 **Done when:** A fresh clone runs with demo data by following the README.
 
-
-
 ### Key milestone checkpoints
 
-- **1 end:** createBooking rejects overlapping, past, over-capacity and maintenance-blocked books — the rule engine is proven and the concurrent double-book test passes.
-- **2 end:** no-show scheduler releases a room and the waitlist auto-converts on cancellation.
-- **3 end:** full demo walks through search → book → check in → cancel → waitlist.
+- **Backend track end (Phase 13):** the full API — rooms, equipment, booking, cancellation, recurrence, check-in/no-show, waitlist, maintenance, admin/analytics, real-time — is built and verified without any UI.
+- **Frontend track end (Phase 23):** every feature has a working screen wired to that API, feature by feature, in the same order.
+- **Phase 24 end:** the full demo walks through search → book → check in → cancel → waitlist, backed by automated tests.
 
 ---
 
@@ -624,17 +715,17 @@ The project is built feature by feature. Every phase delivers one feature **end-
 | No-show job timing gaps                           | node-cron every minute, idempotent release rules |
 | Notifications missing users                       | Emit via Socket.io to per-user room-joined sockets, refetch queries |
 | N+1 queries slowing room lists                    | DataLoaders and eager relations           |
-| Scope creep before core flow works                | Follow phase order; optional features only after Phase 13 |
+| Scope creep before core flow works                | Follow phase order; optional features only after the backend track (Phase 13) closes |
+| Frontend wiring surfaces a missing backend field/query | Each frontend phase opens with a "Backend adjustments" step rather than starting a new module |
 
 ---
 
 ## 7. Milestones & Timeline
 
-| Milestone              | Phases                     | Deliverable                                  |
-| ---------------------- | -------------------------- | -------------------------------------------- |
-| M1 Project foundation  | 1–2                        | Empty server + client + data model           |
-| M2 Auth + rooms        | 3–4                        | Login/logout and room browsing               |
-| M3 Core booking        | 5–6                        | create/search/cancel booking with all rules  |
-| M4 Meetings + check-in | 7–10                       | Recurring, check-in, no-show, waitlist       |
-| M5 Admin + analytics   | 11–13                      | Admin screens + usage info + real-time       |
-| M6 Final wrap          | 14–15                      | README, tests, screenshots, demo             |
+| Milestone                  | Phases | Deliverable                                          |
+| --------------------------- | ------ | ----------------------------------------------------- |
+| M1 Project foundation       | 1–2    | Empty server + client + data model *(done)*            |
+| M2 Auth                     | 3      | Login/logout and roles *(done)*                        |
+| M3 Backend track            | 4–13   | Full API: rooms → equipment → booking → cancellation → recurrence → check-in/no-show → waitlist → maintenance → admin/analytics → real-time |
+| M4 Frontend track           | 14–23  | Full UI wired to the API, same feature order          |
+| M5 Final wrap               | 24–25  | Tests, security/perf pass, README, screenshots, demo  |

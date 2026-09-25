@@ -49,6 +49,7 @@ export class AuthResolver {
   }
 
   @Mutation(() => Boolean)
+  @Authorized()
   async logout(@Ctx() ctx: AppContext): Promise<boolean> {
     ctx.res.clearCookie(SESSION_COOKIE);
     return true;
