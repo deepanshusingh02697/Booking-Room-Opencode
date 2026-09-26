@@ -1,10 +1,13 @@
 import { Employee } from '../../auth/entities/employee';
 import { Booking } from '../../bookings/entities/booking';
 import { Room } from '../../rooms/entities/room';
+import { WaitlistEntry } from '../../waitlist/entities/waitlist-entry';
 import {
+  BookingCheckedInNotification,
   BookingCreatedNotification,
   ParticipantAddedNotification,
   ParticipantRemovedNotification,
+  WaitlistConvertedNotification,
 } from '../dto/notification-payload';
 
 const toBookingNotification = (
@@ -52,4 +55,27 @@ export const buildParticipantRemovedNotification = (
 ): ParticipantRemovedNotification => ({
   type: 'PARTICIPANT_REMOVED' as const,
   ...toBookingNotification(booking, room, organizer, employee),
+});
+
+export const buildBookingCheckedInNotification = (
+  booking: Booking,
+  room: Room,
+  organizer: Employee,
+  checkedInBy: Employee,
+): BookingCheckedInNotification => ({
+  type: 'CHECK_IN' as const,
+  ...toBookingNotification(booking, room, organizer, organizer),
+  checkedInByName: `${checkedInBy.firstName} ${checkedInBy.lastName}`,
+});
+
+export const buildWaitlistConvertedNotification = (
+  booking: Booking,
+  room: Room,
+  convertedEmployee: Employee,
+  waitlistEntry: WaitlistEntry,
+): WaitlistConvertedNotification => ({
+  type: 'WAITLIST_CONVERTED' as const,
+  ...toBookingNotification(booking, room, convertedEmployee, convertedEmployee),
+  waitlistStartTime: waitlistEntry.startTime,
+  waitlistEndTime: waitlistEntry.endTime,
 });

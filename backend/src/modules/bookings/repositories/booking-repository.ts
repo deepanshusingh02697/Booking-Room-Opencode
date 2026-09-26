@@ -1,5 +1,6 @@
 import { EntityManager, LessThan, LessThanOrEqual, MoreThan } from 'typeorm';
 import { AppDataSource } from '../../../config/data-source';
+import { CheckIn } from '../../checkin/entities/check-in';
 import { Maintenance } from '../../maintenance/entities/maintenance';
 import { Participant } from '../../participants/entities/participant';
 import { Booking, BookingStatus } from '../entities/booking';
@@ -137,5 +138,69 @@ export class BookingRepository {
       },
       order: { startTime: 'DESC' },
     });
+  }
+
+  async findNoShowCandidates(
+    manager: EntityManager,
+    cutoff: Date,
+  ): Promise<Booking[]> {
+    return manager
+      .getRepository(Booking)
+      .createQueryBuilder('booking')
+      .where('booking.status = :status', { status: BookingStatus.CONFIRMED })
+      .andWhere('booking.startTime <= :cutoff', { cutoff })
+      .andWhere(
+        (qb) =>
+          `NOT EXISTS (${qb
+            .subQuery()
+            .select('1')
+            .from(CheckIn, 'ci')
+            .where('ci.bookingId = booking.id')
+            .getQuery()})`,
+      )
+      .getMany();
+  }
+
+  async findEndedConfirmedWithCheckIn(
+    manager: EntityManager,
+    now: Date,
+  ): Promise<Booking[]> {
+    return manager
+      .getRepository(Booking)
+      .createQueryBuilder('booking')
+      .where('booking.status = :status', { status: BookingStatus.CONFIRMED })
+      .andWhere('booking.endTime <= :now', { now })
+      .andWhere(
+        (qb) =>
+          `EXISTS (${qb
+            .subQuery()
+            .select('1')
+            .from(CheckIn, 'ci')
+            .where('ci.bookingId = booking.id')
+            .getQuery()})`,
+      )
+      .getMany();
+  }
+
+  async markNoShowIfConfirmed(
+    manager: EntityManager,
+    id: number,
+  ): Promise<boolean> {
+    const result = await manager.getRepository(Booking).update(
+      { id, status: BookingStatus.CONFIRMED },
+      { status: BookingStatus.NO_SHOW },
+    );
+    return result.affected === 1;
+  }
+
+  async markCompletedIfConfirmed(
+    manager: EntityManager,
+    id: number,
+  ): Promise<boolean> {
+    const result = await manager.getRepository(Booking).update(
+      { id, status: BookingStatus.CONFIRMED },
+      { status: BookingStatus.COMPLETED },
+    );
+    return result.affected === 1;
   }
 }

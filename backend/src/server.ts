@@ -12,6 +12,7 @@ import { createSchema } from './schema';
 import { buildContext, AppContext } from './common/context';
 import { logger } from './common/logger';
 import { startJobs, stopJobs } from './jobs/registry';
+import { closeSocketServer, initSocketServer } from './realtime/socket';
 
 interface ValidationFailure {
   property: string;
@@ -77,15 +78,15 @@ const startServer = async () => {
   );
 
   const server = http.createServer(app);
+  initSocketServer(server);
 
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, shutting down gracefully...`);
     stopJobs();
     await apollo.stop();
-    server.close(() => {
-      logger.info('Server closed');
-      process.exit(0);
-    });
+    await closeSocketServer();
+    logger.info('Server closed');
+    process.exit(0);
   };
 
   process.on('SIGINT', () => shutdown('SIGINT'));
@@ -96,6 +97,7 @@ const startServer = async () => {
   server.listen(env.PORT, () => {
     logger.info(`API ready at http://localhost:${env.PORT}/graphql`);
     logger.info(`Health check at http://localhost:${env.PORT}/health`);
+    logger.info(`Socket.IO endpoint at http://localhost:${env.PORT}/socket.io`);
   });
 };
 

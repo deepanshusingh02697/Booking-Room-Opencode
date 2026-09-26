@@ -54,9 +54,6 @@ export class Booking {
   @Column({ name: 'recurrence_id', nullable: true })
   recurrenceId: string;
 
-  @Column({ name: 'has_checked_in', default: false })
-  hasCheckedIn: boolean;
-
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

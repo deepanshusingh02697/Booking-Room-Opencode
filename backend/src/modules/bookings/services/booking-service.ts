@@ -9,6 +9,7 @@ import {
 import { AppDataSource } from '../../../config/data-source';
 import { Employee, UserRole } from '../../auth/entities/employee';
 import { EmployeeRepository } from '../../auth/repositories/employee-repository';
+import { CheckInRepository } from '../../checkin/repositories/check-in-repository';
 import { Maintenance } from '../../maintenance/entities/maintenance';
 import { NotificationService } from '../../notifications/services/notification-service';
 import { ParticipantRepository } from '../../participants/repositories/participant-repository';
@@ -93,6 +94,7 @@ export class BookingService {
   private readonly participantRepository = new ParticipantRepository();
   private readonly roomRepository = new RoomRepository();
   private readonly employeeRepository = new EmployeeRepository();
+  private readonly checkInRepository = new CheckInRepository();
   private readonly notificationService = new NotificationService();
   private readonly waitlistConversionService = new WaitlistConversionService();
 
@@ -315,7 +317,10 @@ export class BookingService {
       throw new ValidationError('This booking is no longer confirmed.');
     }
 
-    await this.waitlistConversionService.onBookingCancelled(cancelled);
+    await this.waitlistConversionService.onBookingCancelled(
+      cancelled,
+      (organizer, bookingData) => this.create(organizer, bookingData),
+    );
     return cancelled;
   }
 
@@ -376,6 +381,48 @@ export class BookingService {
     };
   }
 
+  async completeFinishedBookings(now: Date): Promise<Booking[]> {
+    const completed: Booking[] = [];
+
+    await AppDataSource.transaction(async (manager) => {
+      const candidates =
+        await this.bookingRepository.findEndedConfirmedWithCheckIn(
+          manager,
+          now,
+        );
+
+      for (const candidate of candidates) {
+        const booking = await this.bookingRepository.findByIdForUpdate(
+          manager,
+          candidate.id,
+        );
+        if (!booking || booking.status !== BookingStatus.CONFIRMED) {
+          continue;
+        }
+
+        const existingCheckIn =
+          await this.checkInRepository.findByBookingIdInTransaction(
+            manager,
+            booking.id,
+          );
+        if (!existingCheckIn) {
+          continue;
+        }
+
+        const wasCompleted =
+          await this.bookingRepository.markCompletedIfConfirmed(
+            manager,
+            booking.id,
+          );
+        if (wasCompleted) {
+          completed.push(booking);
+        }
+      }
+    });
+
+    return completed;
+  }
+
   private async addParticipantsInTransaction(
     user: AuthUser,
     data: AddBookingParticipantsData,
@@ -424,6 +471,11 @@ export class BookingService {
       const room = await this.roomRepository.findById(booking.roomId);
       if (!room) {
         throw new NotFoundError('Room not found.');
+      }
+      if (room.status !== RoomStatus.AVAILABLE) {
+        throw new ValidationError(
+          `Room "${room.name}" is not available for booking (current status: ${room.status}).`,
+        );
       }
 
       const attendeeCount =

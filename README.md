@@ -46,6 +46,16 @@ Prerequisites: Node.js, PostgreSQL.
    - Backend: http://localhost:4000/graphql
    - Frontend: http://localhost:5173
 
+   Real-time notifications are served by Socket.IO on the same port
+   (`http://localhost:4000/socket.io`). The handshake is authenticated with the same
+   httpOnly session cookie as GraphQL, and Vite proxies `/socket.io` in development.
+   To verify the event stream without any UI, run the bare Socket.IO client script
+   against a running server:
+
+   ```bash
+   npm run socket:verify -w backend
+   ```
+
 ## Architecture
 
 Feature-based modules, each split into layers: Resolver → Service → Repository → Entity. See `doc/plan.md` for the full structure and phase plan.
@@ -57,6 +67,11 @@ Feature-based modules, each split into layers: Resolver → Service → Reposito
 
 ## Status
 
-- **Phase 1 — Project foundation:** done. Backend (`/health`, GraphQL at `/graphql`) and frontend run together.
-- **Phase 2 — Database design:** done. Migrations and seed data load against PostgreSQL.
-- **Phase 3 — Authentication & roles:** next.
+Backend track (Phases 1–13) is complete: project foundation, database design,
+authentication, rooms, equipment, bookings, cancellation, recurring meetings,
+check-in/no-show, waitlist, maintenance, admin calendar/analytics and real-time
+notifications are all served by the API. The frontend track (Phases 14–23) is next.
+
+- **Phase 13 done-when:** adding a participant delivers a `notification:PARTICIPANT_ADDED`
+  event to that employee's connected Socket.IO client in real time — verified with
+  `npm run socket:verify -w backend` (no UI involved).

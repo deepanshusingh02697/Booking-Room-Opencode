@@ -7,9 +7,7 @@ import { LogInInput } from '../dto/log-in-input';
 import { SignUpInput } from '../dto/sign-up-input';
 import { Employee } from '../entities/employee';
 import { AuthService } from '../services/auth-service';
-import { signToken, tokenMaxAgeMs } from '../utils/jwt';
-
-const SESSION_COOKIE = 'token';
+import { SESSION_COOKIE, signToken, tokenMaxAgeMs } from '../utils/jwt';
 
 @Resolver()
 export class AuthResolver {

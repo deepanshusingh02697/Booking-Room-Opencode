@@ -20,7 +20,20 @@ export type ParticipantRemovedNotification = BookingNotification & {
   type: 'PARTICIPANT_REMOVED';
 };
 
+export type BookingCheckedInNotification = BookingNotification & {
+  type: 'CHECK_IN';
+  checkedInByName: string;
+};
+
+export type WaitlistConvertedNotification = BookingNotification & {
+  type: 'WAITLIST_CONVERTED';
+  waitlistStartTime: Date;
+  waitlistEndTime: Date;
+};
+
 export type NotificationPayload =
   | BookingCreatedNotification
   | ParticipantAddedNotification
-  | ParticipantRemovedNotification;
+  | ParticipantRemovedNotification
+  | BookingCheckedInNotification
+  | WaitlistConvertedNotification;

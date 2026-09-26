@@ -2,7 +2,10 @@
 
 **Project type:** Full-stack meeting-room booking system
 **Source of truth:** doc/requirement.md
-**Status:** Phases 1–3 implemented. Phases 4 onward restructured below: full backend for every remaining feature first, then frontend for every feature (wiring the UI to the already-built API, with backend touch-ups called out where wiring usually surfaces a gap).
+**Status:** **Phases 1–13 implemented** (the full backend track, verified through the API + a bare
+Socket.io client with no UI). Phases 14–23 (frontend track) follow, in the same feature order: each
+opens with a "Backend adjustments" step against the already-proven API rather than starting a new
+module. Hardening (24) and docs/delivery (25) close the project.
 
 ## Scope Note
 
@@ -526,6 +529,10 @@ frontend/
 
 **Deliverable:** Live notification events, testable with a Socket.io client script.
 **Done when:** Adding a participant triggers their event in real time, confirmed with a bare socket client (no UI yet).
+**Status: DONE (2026-09-26).** `realtime/socket.ts` + `realtime/events.ts`; five events
+(`notification:BOOKING_CREATED|PARTICIPANT_ADDED|PARTICIPANT_REMOVED|CHECK_IN|WAITLIST_CONVERTED`)
+to per-user `user:<id>` rooms; unauthenticated handshakes rejected; verified by
+`npm run socket:verify -w backend` (27/27 checks).
 
 **Backend track checkpoint:** the entire GraphQL + Socket.io API now exists and has been exercised directly. Everything from here is frontend, feature by feature, in the same order.
 

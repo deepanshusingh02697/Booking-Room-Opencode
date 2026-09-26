@@ -2,6 +2,8 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../../config/env';
 import { UserRole } from '../entities/employee';
 
+export const SESSION_COOKIE = 'token';
+
 export interface JwtPayload {
   id: number;
   role: UserRole;

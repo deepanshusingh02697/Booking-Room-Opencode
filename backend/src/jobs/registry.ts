@@ -1,7 +1,9 @@
 import cron, { ScheduledTask } from 'node-cron';
 import { logger } from '../common/logger';
+import { bookingCompletionJob } from './booking-completion';
+import { noShowReleaseJob } from './no-show-release';
 
-type Job = {
+export type Job = {
   name: string;
   schedule: string;
   run: () => Promise<void> | void;
@@ -14,6 +16,9 @@ const jobRegistry: Job[] = [];
 export const registerCronJob = (job: Job) => {
   jobRegistry.push(job);
 };
+
+registerCronJob(noShowReleaseJob);
+registerCronJob(bookingCompletionJob);
 
 export const startJobs = () => {
   for (const job of jobRegistry) {

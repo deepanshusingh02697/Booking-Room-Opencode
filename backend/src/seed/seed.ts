@@ -198,7 +198,7 @@ const main = async () => {
     checkInRepo.create({
       bookingId: pastDesignReview.id,
       checkedInBy: priya.id,
-      checkedInAt: at(9, 55, -1),
+      checkedInAt: at(10, 2, -1),
     }),
   );
 

@@ -1,5 +1,6 @@
 import { Field, Int, ObjectType } from 'type-graphql';
 import { EmployeeType } from '../../auth/dto/employee-type';
+import { CheckInType } from '../../checkin/dto/check-in-type';
 import { ParticipantType } from '../../participants/dto/participant-type';
 import { RoomType } from '../../rooms/dto/room-type';
 import { Booking, BookingStatus } from '../entities/booking';
@@ -34,7 +35,10 @@ export class BookingType {
   recurrenceId?: string;
 
   @Field()
-  hasCheckedIn: boolean;
+  hasCheckedIn?: boolean;
+
+  @Field(() => CheckInType, { nullable: true })
+  checkIn?: CheckInType;
 
   @Field()
   createdAt: Date;
@@ -62,7 +66,6 @@ export const toBookingType = (booking: Booking): BookingType => ({
   startTime: booking.startTime,
   endTime: booking.endTime,
   recurrenceId: booking.recurrenceId ?? undefined,
-  hasCheckedIn: booking.hasCheckedIn,
   createdAt: booking.createdAt,
   updatedAt: booking.updatedAt,
 });

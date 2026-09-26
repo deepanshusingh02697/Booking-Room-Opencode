@@ -24,6 +24,20 @@ const addDays = (date: Date, days: number): Date => {
   return shifted;
 };
 
+const countOccurrences = (
+  startTime: Date,
+  stepDays: number,
+  endDate: Date,
+): number => {
+  let count = 0;
+  let cursor = new Date(startTime);
+  while (cursor.getTime() <= endDate.getTime()) {
+    count += 1;
+    cursor = addDays(cursor, stepDays);
+  }
+  return count;
+};
+
 const occurrencesOverlap = (
   first: BookingOccurrence,
   second: BookingOccurrence,
@@ -49,6 +63,13 @@ export const generateOccurrences = (
     );
   }
 
+  const totalOccurrences = countOccurrences(startTime, stepDays, endDate);
+  if (totalOccurrences > MAX_RECURRENCE_OCCURRENCES) {
+    throw new ValidationError(
+      `A recurring series can have at most ${MAX_RECURRENCE_OCCURRENCES} occurrences (this end date would generate ${totalOccurrences}). Choose an earlier end date.`,
+    );
+  }
+
   const durationMs = endTime.getTime() - startTime.getTime();
   const occurrences: BookingOccurrence[] = [];
 
@@ -61,19 +82,11 @@ export const generateOccurrences = (
     occurrenceStart = addDays(occurrenceStart, stepDays);
   }
 
-  if (occurrences.length > MAX_RECURRENCE_OCCURRENCES) {
-    throw new ValidationError(
-      `A recurring series can have at most ${MAX_RECURRENCE_OCCURRENCES} occurrences (this end date would generate ${occurrences.length}). Choose an earlier end date.`,
-    );
-  }
-
-  for (let i = 0; i < occurrences.length; i++) {
-    for (let j = i + 1; j < occurrences.length; j++) {
-      if (occurrencesOverlap(occurrences[i], occurrences[j])) {
-        throw new ValidationError(
-          'The generated occurrences overlap each other. Shorten the booking duration or use a lower recurrence frequency.',
-        );
-      }
+  for (let i = 1; i < occurrences.length; i++) {
+    if (occurrencesOverlap(occurrences[i - 1], occurrences[i])) {
+      throw new ValidationError(
+        'The generated occurrences overlap each other. Shorten the booking duration or use a lower recurrence frequency.',
+      );
     }
   }
 
