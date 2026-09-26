@@ -24,6 +24,12 @@ export class RoomService {
 
     const name = data.name.trim();
     const location = data.location.trim();
+    if (name.length === 0) {
+      throw new ValidationError('Room name is required.');
+    }
+    if (location.length === 0) {
+      throw new ValidationError('Room location is required.');
+    }
 
     const existing = await this.roomRepository.findByName(name);
     if (existing) {
@@ -55,6 +61,9 @@ export class RoomService {
 
     if (data.name !== undefined) {
       const name = data.name.trim();
+      if (name.length === 0) {
+        throw new ValidationError('Room name cannot be empty.');
+      }
       const existing = await this.roomRepository.findByName(name);
       if (existing && existing.id !== id) {
         throw new ConflictError(`A room named "${name}" already exists.`);
@@ -64,7 +73,13 @@ export class RoomService {
 
     if (data.capacity !== undefined) update.capacity = data.capacity;
     if (data.floor !== undefined) update.floor = data.floor;
-    if (data.location !== undefined) update.location = data.location.trim();
+    if (data.location !== undefined) {
+      const location = data.location.trim();
+      if (location.length === 0) {
+        throw new ValidationError('Room location cannot be empty.');
+      }
+      update.location = location;
+    }
 
     const updated = await this.roomRepository.update(id, update);
     if (!updated) {

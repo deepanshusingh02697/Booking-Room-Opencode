@@ -1,4 +1,5 @@
 import { Field, Int, ObjectType } from 'type-graphql';
+import { EquipmentType } from '../../equipment/dto/equipment-type';
 import { Room, RoomStatus } from '../entities/room';
 
 @ObjectType()
@@ -26,6 +27,15 @@ export class RoomType {
 
   @Field()
   updatedAt: Date;
+
+  @Field(() => [EquipmentType])
+  equipment?: EquipmentType[];
+
+  @Field(() => Int)
+  occupantCount?: number;
+
+  @Field(() => Int)
+  remainingCapacity?: number;
 }
 
 export const toRoomType = (room: Room): RoomType => ({

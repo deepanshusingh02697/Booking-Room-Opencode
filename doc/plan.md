@@ -404,20 +404,6 @@ frontend/
 **Done when:** Anonymous calls return UNAUTHENTICATED; an employee cannot call admin-only operations.
 
 
-## 4. Phases
-
-Phases 1–3 (Project Foundation, Database Design, Authentication & Roles) are **already implemented and unchanged** — see the original scope: workspace + Express/Apollo skeleton, full TypeORM data model + migrations + seed, and JWT login/roles with the matching auth UI.
-
-From Phase 4 onward, the plan is split into two tracks instead of interleaving backend and frontend per feature:
-
-- **Backend track (Phases 4–13):** build every remaining module's resolvers/services/repositories/entities, feature by feature, verified through GraphQL Playground/Postman only. No frontend work happens here.
-- **Frontend track (Phases 14–23):** wire the UI to each already-built module, one feature per phase, in the same order as the backend track. Each frontend phase starts with a short "Backend adjustments" step, because wiring a real UI to a real API is exactly when a missing field resolver, a shape mismatch, or a missing filter turns up — those go back into the backend module, not into a new module.
-- **Phases 24–25:** hardening/tests and documentation, unchanged in spirit from before.
-
-This means the whole API surface (through notifications) exists and is testable before any more UI is written, and then the UI is built once, feature by feature, against a stable backend.
-
----
-
 ### BACKEND TRACK
 
 ### Phase 4 — Rooms (Backend)
