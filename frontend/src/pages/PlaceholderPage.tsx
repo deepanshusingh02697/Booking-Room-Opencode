@@ -1,14 +1,21 @@
+import type { ReactNode } from 'react';
+import { AppCard } from '../components/common/AppCard';
+import { typeScale } from '../theme';
+
 type PlaceholderPageProps = {
   title: string;
+  phase: string;
+  children?: ReactNode;
 };
 
-export const PlaceholderPage = ({ title }: PlaceholderPageProps) => {
+export const PlaceholderPage = ({ title, phase, children }: PlaceholderPageProps) => {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-center">
-      <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
-      <p className="text-sm text-slate-500">
-        This screen is built in a later phase. Phase 1 — Project Foundation.
-      </p>
+    <div className="py-8">
+      <h1 className={typeScale.pageTitle}>{title}</h1>
+      <AppCard className="mt-6">
+        <p className="text-sm text-muted">This screen is built in {phase}.</p>
+        {children}
+      </AppCard>
     </div>
   );
 };

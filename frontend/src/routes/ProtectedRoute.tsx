@@ -8,7 +8,7 @@ export const ProtectedRoute = () => {
 
   if (initialLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="flex min-h-screen items-center justify-center bg-shell">
         <LoadingState label="Checking your session…" />
       </div>
     );

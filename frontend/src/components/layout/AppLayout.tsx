@@ -1,24 +1,28 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
+import { useAuth } from '../../hooks/useAuth';
 
 export const AppLayout = () => {
+  const { isAdmin } = useAuth();
+
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-shell">
       <Navbar />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 overflow-x-auto p-6">
-          <Outlet />
-        </main>
+        {isAdmin ? (
+          <main className="min-w-0 flex-1 overflow-x-auto px-6">
+            <Outlet />
+          </main>
+        ) : (
+          <main className="min-w-0 flex-1 overflow-x-auto px-4 sm:px-6">
+            <div className="mx-auto max-w-[1563px]">
+              <Outlet />
+            </div>
+          </main>
+        )}
       </div>
     </div>
   );
 };
-
-export const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  isActive
-    ? 'block rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white'
-    : 'block rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200';
-
-export { NavLink };

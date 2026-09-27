@@ -5,10 +5,59 @@ export const UserRole = {
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
+export const RoomStatus = {
+  AVAILABLE: 'AVAILABLE',
+  MAINTENANCE: 'MAINTENANCE',
+  DISABLED: 'DISABLED',
+} as const;
+
+export type RoomStatus = (typeof RoomStatus)[keyof typeof RoomStatus];
+
+export const BookingStatus = {
+  CONFIRMED: 'CONFIRMED',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+  NO_SHOW: 'NO_SHOW',
+} as const;
+
+export type BookingStatus = (typeof BookingStatus)[keyof typeof BookingStatus];
+
 export interface Employee {
   id: number;
   firstName: string;
   lastName: string;
   email: string;
   role: UserRole;
+}
+
+export interface Room {
+  id: number;
+  name: string;
+  capacity: number;
+  floor: number;
+  location: string;
+  status: RoomStatus;
+  occupantCount?: number;
+  remainingCapacity?: number;
+}
+
+export interface Booking {
+  id: number;
+  roomId: number;
+  organizerId: number;
+  title: string;
+  description?: string;
+  status: BookingStatus;
+  startTime: string;
+  endTime: string;
+  recurrenceId?: string;
+  room?: Room;
+}
+
+export interface RoomUsage {
+  roomId: number;
+  roomName: string;
+  totalBookings: number;
+  cancellations: number;
+  noShows: number;
 }

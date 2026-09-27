@@ -3,8 +3,13 @@
 > Persistent AI handoff document. Update this file whenever the project state changes
 > so a new OpenCode session or model can continue development without re-discovering context.
 
-Last updated: 2026-09-26 (end of Phase 13 backend session; **Phase 13 — Real-time Notifications (backend) is
-DONE — the BACKEND TRACK (Phases 4–13) IS COMPLETE. Next is Phase 14 — Rooms (Frontend), the first frontend phase**)
+Last updated: 2026-09-27 (**a third UI design session: the user supplied TWO MORE design screenshots — the
+ADMIN dashboard and the EMPLOYEE dashboard — and instructed that the whole app must follow them too. §7.2 is
+now the app-shell/dashboard half of the UI source of truth and is binding on every frontend phase alongside
+§7.1; §9.2 holds the decisions and §8.24 the extraction method.** Still ahead of that: end of Phase 13 backend
+session, plus an earlier UI design-system session that rebuilt the login/signup screen — §7.1 is the other half
+of the UI source of truth. **Phase 13 — Real-time Notifications (backend) is DONE — the BACKEND TRACK
+(Phases 4–13) IS COMPLETE. Next is Phase 14 — Rooms (Frontend), the first frontend phase**)
 Repo: `Book-MeetingRoom` (branch `main`)
 Working tree at session close: **uncommitted Phase 9 + Phase 10 + Phase 11 + Phase 12 + Phase 13 changes**.
 Phase 13 added the real-time layer: `src/realtime/events.ts` (one socket event per notification type +
@@ -42,6 +47,23 @@ Phase 9 (check-in module, both cron jobs, migration `1730000000003`) is still un
 Phases 5–8 were committed before this session (commit `068eb30`).
 The user commits manually (§8.11); if the tree is clean when you read this, Phases 9–12 are committed.
 
+**UI design-system session (2026-09-26, AFTER the Phase 13 work — read this before any frontend phase):**
+the user supplied two design screenshots (login + register) and instructed that **the whole application must
+look like them, not just the auth screen**. The auth screen was rebuilt to match them within ~1.5px and its
+tokens/components are now the app-wide UI baseline: **§7.1 holds the full spec (colours, type scale, control
+heights, split-layout rules), §9.1 holds the decisions.** Uncommitted from that session:
+`frontend/src/components/auth/` (4 new files), `frontend/src/pages/login/LoginPage.tsx` and
+`frontend/tailwind.config.ts` (modified). The two reference PNGs sit untracked in the repo root.
+
+**App-shell / dashboard design session (2026-09-27 — the NEWEST UI input, read this first):**
+the user supplied **two more** design screenshots — the **admin dashboard** and the **employee dashboard** —
+with the same instruction: the app must follow them. They define the authenticated shell (navy top bar, admin
+left sidebar, employee centred top nav, `#F5F5F5` page background, black-hairline white cards, stat tiles,
+panel cards, empty states, dashboard buttons) that **every page built in Phases 14–23 sits inside**. Spec:
+**§7.2**; decisions: **§9.2**; extraction method + the "no image vision in this session" caveat: **§8.24**.
+**Nothing was implemented in this session** — it is doc-only, and the §7.2 tokens are **not yet in
+`frontend/tailwind.config.ts`** (adding them is the first mechanical step of Phase 14, §7.2 "Rollout").
+
 ---
 
 ## 1. Project Overview
@@ -56,6 +78,9 @@ Source-of-truth doc (note: `doc/`):
 - `doc/requirement.md` — functional requirements (FR-1 … FR-47), business rules, data model
 - `doc/plan.md` — implementation plan, folder structure, phases 1–25
 - `README.md` — setup + run instructions (kept in sync with real state)
+- **the user's design screenshots + §7.1 + §7.2 of this file** — the visual source of truth for the frontend
+  (four references in total: login + register → §7.1, admin dashboard + employee dashboard → §7.2; the login
+  pair's PNGs are untracked in the repo root, the dashboard pair is Cloudinary-only, URLs in §7.2)
 
 Phase structure (restructured 2026-09-25): Phases 1–3 foundation/auth (done), then a
 **backend track** (Phases 4–13, one feature per phase — **CLOSED/DONE as of 2026-09-26**), then a
@@ -80,6 +105,10 @@ Phase structure (restructured 2026-09-25): Phases 1–3 foundation/auth (done), 
 │       ├── schema.ts     buildSchema()
 │       └── server.ts     Express + Apollo + cron + DB init
 ├── frontend/            React + Vite + Tailwind + Apollo Client
+│   └── src/
+│       ├── components/   auth/ (design-system primitives — §7.1), layout/, forms/, common/
+│       ├── pages/        login/ (real, §7.1) + empty dirs per feature (route table renders PlaceholderPage)
+│       ├── context/ hooks/ graphql/ routes/ theme/ types/ utils/ realtime/
 └── (turbo monorepo: root package.json workspaces [backend, frontend])
 ```
 
@@ -129,7 +158,87 @@ Demo credentials (from seed):
 - Employee: `aarav@mri.com` / `Employee@123` (also priya/rohan/sara @mri.com)
 - Admin: `admin@gmail.com` / `Admin@123`
 
-## 5. Current Status (verified 2026-09-26)
+## 5. Current Status (verified 2026-09-27)
+
+### UI Design System + Auth Screen (frontend baseline): ✅ DONE (2026-09-26, uncommitted)
+- Rebuilt `/login` (both modes) from the two user-supplied design screenshots. Verified by pixel-diffing
+  headless-Chromium renders at `1783×895 @2x` against the references: **every ink block within ±1.5px** in
+  both login and register, colours exact, and at `390×844` the brand panel is gone and the form fills the
+  screen. Method + tokens + component specs: **§7.1**; decisions: **§9.1**.
+- New `frontend/src/components/auth/` — `AuthBrandPanel` (`hidden lg:flex`, `w-1/2`, `bg-navy`),
+  `AuthTabs` (2-col grid, 2px navy underline on the active half), `AuthField` (`h-11`, 4px radius, 1px black
+  border, `sr-only` label mode, inline eye show/hide), `RoleSelector` (2-col cards, navy check on selection).
+- `frontend/tailwind.config.ts` gained the 11 measured colour tokens (§7.1 table). No other config touched.
+- `pages/login/LoginPage.tsx` rewritten: Employee/Admin role cards replace the old "sign in as administrator"
+  checkbox (still `logIn` vs `adminLogIn`), register adds a client-only confirm-password, forgot-password is
+  UI-only. Auth wiring (`useAuth` + `AuthContext`) and the redirect-to-`/` behaviour are unchanged.
+- **This is a baseline, not Phase 14.** Phase 14 (Rooms) is still the next phase — see §9.1 for what a new
+  page is expected to reuse.
+
+### App Shell & Dashboard Theme (admin + employee panels): ✅ BUILT + RE-MEASURED (2026-09-27, uncommitted)
+- The user supplied the **admin dashboard** and **employee dashboard** screenshots and instructed that the app
+  must follow them. Full measured spec: **§7.2**; decisions: **§9.2**; extraction method: **§8.24**.
+- **What the spec pins down:** two shells (admin = 299 px left sidebar, employee = centred horizontal top
+  nav, both under a navy bar), 12 new colour tokens, the navy top bar geometry, nav active/inactive states
+  (admin = solid navy block, employee = `#41487E` pill), the 1 px black-bordered white card with its soft
+  shadow, the 40×39 `#EEF0FE` stat tile with a navy numeral, the panel card, the one-line centred muted
+  empty state, 40 px Title-Case dashboard buttons, the type-scale extension (only 18 px is new) and the
+  dashboard copy rules.
+- **All 12 tokens are now in `frontend/tailwind.config.ts`**, and the primitives (`AppCard`, `StatCard`,
+  `PanelCard`, `PageHeader`, `EmptyState`, `LoadingState`, `ErrorState`, `Modal`, `StatusBadge`, `Button`,
+  `Input`, `Select`, `DateTimePicker`, `TopNav`, `AppLayout`) are extracted and wired to real GraphQL data.
+- **Re-measured after building (§8.24 method, PIL run-length + ink profiles).** Now matching the references:
+  - navy bar **54 px admin / 58 px employee** — exact; dominant colour histogram matches token-for-token.
+  - admin sidebar: eyebrow ink top within **0.5 px**; active item rect **114→158 px, identical to the
+    reference**; nav item pitch **48 px** identical; 299 px sidebar and 4-up stat card span within **1 px**.
+  - employee: 3-up stat row cards within **1.5 px** of the reference (`111.5/622 … 1676` vs
+    `113/622 … 1675.5`); 58 px bar exact.
+  - content stack: greeting sub-caption, stat row and panel row all land within **2–3 px** of the reference
+    on both shells. `PageHeader` takes an explicit `topPad` prop because the two references differ (admin
+    `pt-8`, employee `pt-10`) — do **not** re-merge these into one value.
+  - **Known 5 px residual on the `h1` ink box** (admin 85→106.5 ref vs 90.5→117 mine). The reference PNGs
+    use a different typeface whose cap-height ratio differs from Tailwind's system stack; §7.1 already
+    records that a webfont is out of scope. Every block *below* the `h1` matches, so this is cosmetic and
+    was deliberately left alone rather than chased with a magic offset.
+- **Bugs found and fixed during the re-measure** (each was a real defect, not a tuning nit):
+  1. The admin top nav was `hidden lg:block`, i.e. it rendered the horizontal nav *at desktop* on top of
+     the sidebar. Corrected to `lg:hidden` (the strip only appears below `lg`).
+  2. `typeScale.pageTitle` carried `leading-[59px]`, inherited from the auth screen's 48 px two-line brand
+     heading. It pushed the whole dashboard content stack ~20 px down. Now `leading-none`.
+  3. The employee content wrapper had `px-6` *inside* `max-w-[1563px]`, so the content was 1514 px wide
+     instead of 1563 px. The max-width now applies to the content, with the page padding moved outside.
+  4. Below `lg` the header used a 3-track grid that overflowed at 390 px (brand + nav + user cluster), so
+     the employee nav pill rendered flush at `x = 0`. It is now a wrapping flex header that drops the nav to
+     its own full-width scrollable strip; both roles match at 390×844.
+- **Caveat retained:** the session's model had no image vision, so every number here is pixel-measurement +
+  OCR, not visual judgement. Geometry is measured; interpretation is flagged in §7.2/§9.2.
+
+### Phase 14 — Rooms (frontend): ✅ BUILT (2026-09-27, uncommitted)
+- Built the full Phase 14 frontend on top of the §7.2 shell. **No backend changes were made or needed** —
+  the existing `rooms` / `room` queries, `RoomFilterInput` and the create/update/status mutations already
+  cover the directory, filters, details and admin management.
+- **Room Directory** (`pages/room-directory/`) — `RoomDirectoryPage` + `RoomFilters` + `RoomCard`,
+  1/2/3-up responsive grid. Filters are explicit-apply (status, min capacity, floor, free-from/free-until
+  `DateTimePicker`) with a Clear button, matching the reference's button language. Verified live against the
+  seeded backend: 6 rooms total; `AVAILABLE` → 4, `MAINTENANCE` → 1, `DISABLED` → 1, `minCapacity=10` → 4,
+  `floor=2` → 3, Clear → 6. All correct.
+- **Room Details** (`pages/room-details/RoomDetailsPage.tsx`) — live status, occupant count, remaining
+  capacity, and a hand-off note to Phase 8 for booking. Verified live (`/rooms/1` → "Atlas 2.01", no alert).
+- **Admin Rooms** (`pages/admin-rooms/`) — `AdminRoomsPage` + `RoomForm` in a `Modal`. Verified live: the
+  Add Room modal opens with name / capacity / floor / location fields.
+- **Routes** — `/rooms`, `/rooms/:id`, `/admin/rooms`, plus placeholder routes for `/equipment`, `/wait-list`,
+  `/meetings`, `/admin/calendar`, `/admin/analytics` using the reference's own nav labels.
+- **Deviations from §7.2.11, made with explicit user authorisation (§9.2):** the room-directory grid, the
+  filter panel, the details layout and the admin room form are **improvised** — §7.2.11 said to ask the user
+  for these designs rather than improvise, and the user chose to proceed with an improvised catalog. They
+  reuse the §7.1/§7.2 primitives and are not pixel-referenced. Revisit if the user later supplies designs.
+- **Equipment filter/display is deliberately NOT in Phase 14** (it is the Phase 15 equipment phase), so
+  `RoomForm` has no equipment fields.
+- **Open gap — the two admin dashboard list panels render heading + caption only.** Both
+  `Today's Bookings` and `Room Usage` return real data (1 booking; 6 usage rows) but render **no rows**,
+  because §7.2.11 excludes list rows from the design and the user instructed that list-row markup not be
+  invented. A populated panel therefore looks empty. **This needs the user's row design before it can be
+  finished** — see §9.2.
 
 ### Phase 1 — Project Foundation: ✅ DONE
 - Workspaces, Turbo, shared tsconfig, typed env, error classes/codes, logger
@@ -819,6 +928,286 @@ Note: `requirement.md` data model also lists `PasswordResetToken` — **out of s
 - CJS backend (`no "type": "module"`), `module: nodenext`, `emitDecoratorMetadata: true` (in root `tsconfig.base.json`).
 - `schema.ts` registers resolvers explicitly.
 
+### 7.1 Frontend UI Design System — APP-WIDE (binding on every frontend phase)
+
+**The rule:** the user's design screenshots are the visual contract for the **whole application**, not just the
+screen they happen to depict. There are now **two** such contracts and both are binding:
+
+- **§7.1 — the auth/form language** (from the login + register screenshots): colours, type scale, 44px form
+  controls, 4px radii, split-layout rules. Every new page, component, table, modal and empty/error state built
+  in Phases 14–23 must be composed from the tokens and primitives below. No new hex literals in components, no
+  new font sizes, no per-page spacing improvisation. If a screen genuinely needs something not covered, add it
+  to `frontend/tailwind.config.ts` and record it here — never inline a one-off value.
+- **§7.2 — the authenticated app shell + dashboard** (from the admin + employee dashboard screenshots): the
+  navy top bar, the admin sidebar / employee top nav, the `#F5F5F5` page background, the black-hairline white
+  card, the stat tile, the panel card, the one-line empty state and the dashboard buttons. **Every
+  authenticated page is rendered inside this shell, and its content is composed from these primitives.**
+
+§7.1 and §7.2 agree on the things they share (navy `#1F2867` is the brand, 4px radii, 15px and 14px type
+steps, muted `#6B7180` body-secondary) — where they differ, **§7.2 wins inside the authenticated shell** and
+§7.1 wins on `/login` and any bare form screen.
+
+**Colours** (all 11 measured from the reference PNGs; defined in `frontend/tailwind.config.ts`):
+
+| Token | Hex | Use |
+|---|---|---|
+| `navy` | `#1F2867` | primary brand — active tab underline, primary button fill, selected card border + check, focus ring, brand panel |
+| `brand` | `#2C60F2` | inline text links ("Create account", "Forgot password?") |
+| `tint` | `#F4F5FE` | selected surface (role card fill) |
+| `hairline` | `#D3D3D3` | unselected card border |
+| `mist` | `#DDDFE8` | tagline on navy |
+| `ink` | `#232324` | headings + field text |
+| `copy` | `#363636` | body / sub-heading |
+| `label` | `#272727` | field labels, switch line |
+| `muted` | `#6B7180` | captions, icons, copyright |
+| `idle` | `#767676` | inactive tab label |
+| `hint` | `#808080` | input placeholders |
+
+**Type scale** (px; Tailwind's default steps cover everything except the two arbitrary values):
+
+| Size | Class | Use |
+|---|---|---|
+| 48 / lh 59 | `text-[48px] leading-[59px] font-bold` | brand wordmark (navy panel) |
+| 30 | `text-[30px] font-bold` | page heading ("Employee Login") |
+| 16 | `text-base` | tagline, switch line |
+| 15 | `text-[15px] font-bold` | tab labels — arbitrary size, not a default step |
+| 14 | `text-sm` | labels, role titles, sub-heading |
+| 13 | `text-[13px] font-semibold uppercase tracking-[0.08em]` | primary button label |
+| 12 | `text-xs` | captions, copyright |
+
+**Controls** (all measured at 1783×895 @2x; use the auth components, don't re-derive these):
+
+- **Text field** — `h-11` (44px), `rounded` (4px), **1px solid black** (not a grey token), `px-3`, `text-base
+  text-ink`, `placeholder:text-hint`, focus `focus:ring-2 focus:ring-navy`. Error state `border-red-500` +
+  `text-xs text-red-600` message 6px below. → `AuthField`
+- **Primary button** — `h-11`, `rounded`, `bg-navy`, white uppercase 13px semibold, hover `#16204F`
+  (hover shade is inline — it is a hover-only value, not a token). Full-width in forms. → `LoginPage`
+- **Tabs** — `grid grid-cols-2`; each half `border-b-2 pb-2.5 text-[15px] font-bold text-center`; active =
+  `border-navy text-navy`, inactive = `border-transparent text-idle hover:text-navy`. **The 2px navy rule
+  spans only the active half**, not the full row. → `AuthTabs`
+- **Selection card** (role pickers, and the pattern for any 2-option chooser) — `grid grid-cols-2 gap-4`,
+  `rounded border px-4 pt-3.5 pb-3 text-left`; selected = `border-navy bg-tint` + navy check (16px,
+  `strokeWidth 3`); unselected = `border-hairline bg-white hover:border-idle`. Title 14 semibold `ink`,
+  caption `text-xs text-muted` 4px below. → `RoleSelector`
+- **Brand panel / split layout** — page root `flex min-h-screen bg-white`; panel
+  `hidden w-1/2 items-center bg-navy px-16 lg:flex`; form column
+  `flex w-full items-center justify-center px-6 py-12 lg:w-1/2 lg:py-16`; inner `w-full max-w-[428px]`.
+  **Below `lg` the brand panel is hidden and the form is the whole screen** (verified at 390×844).
+- **Icons** — no icon library is installed; use inline SVG with `stroke="currentColor"`
+  (`strokeWidth 1.5` eye, `3` check; 20px eye, 16px check).
+
+**Copy rules:** nav wordmark is "Room / Meeting Intelligence" (two lines, forced `<br/>`); tagline "Streamline
+your meetings operations with our comprehensive Room Meeting Intelligence."; copyright
+"© 2026 Room Meeting Intelligence"; primary button labels are UPPERCASE ("SIGN IN", "REGISTER").
+
+**Fonts:** no webfont — Tailwind's default stack (system-ui). The reference PNGs were rendered with a
+different face, so stroke weight can't be matched exactly; tab labels use `font-bold` because it measured
+1.14× the reference ink vs 0.66× for `font-medium` and 1.28× for `font-semibold`. **Don't re-tune this
+without re-measuring** (see §8.22).
+
+**Fidelity workflow — how §7.1 was produced, and how to verify the next screen:**
+1. Screenshot the target viewport in headless Chromium at `1783×895`, `deviceScaleFactor: 2`.
+2. Compare **ink-block bounding boxes** (dark pixels in the form column) against the reference, in device px
+   ÷2 = CSS px. Every block must land within ~2px.
+3. Confirm the copy with OCR (RapidOCR) and the colours by pixel sampling.
+4. Re-render at `390×844` and confirm the mobile collapse.
+5. **Re-measure the whole column after any single change** — the form column is vertically centred
+   (`items-center`), so adding height anywhere moves every other block by half the delta. The register mode
+   therefore carries a deliberate `mt-2` on the inner column to absorb its own height difference from login.
+
+**What is deliberately NOT unified yet:** the shared `components/common/Button.tsx`,
+`components/forms/Input.tsx` and `Select.tsx` still have their original look — they are used by every
+placeholder route, so restyling them has a wide blast radius and no visible benefit yet. New screens should
+use the auth primitives; consolidating the shared ones into the §7.1 look is a follow-up once there is more
+than one real page to keep consistent.
+
+### 7.2 App Shell & Dashboard Theme — APP-WIDE (binding on every authenticated page)
+
+Extracted 2026-09-27 from the two dashboard screenshots. **Doc-only session: nothing in `frontend/` was
+changed, and the §7.2 colour tokens are not yet in `tailwind.config.ts`** (see "Rollout" at the end).
+
+**Reference images** (Cloudinary is the only copy — re-fetch before re-measuring, do not assume a local file):
+
+| Panel | URL | Pixels | CSS viewport |
+|---|---|---|---|
+| Admin dashboard | `https://res.cloudinary.com/delubzbh2/image/upload/v1790473926/Screenshot_2026-09-27_at_7.21.33_AM_ms3nie.png` | 3580×1782 @2x | 1790×891 |
+| Employee dashboard | `https://res.cloudinary.com/delubzbh2/image/upload/v1790473925/Screenshot_2026-09-27_at_7.20.51_AM_hba8qf.png` | 3576×1804 @2x | 1788×902 |
+
+```bash
+mkdir -p /tmp/mri-theme
+curl -sL -o /tmp/mri-theme/admin.png    "https://res.cloudinary.com/delubzbh2/image/upload/v1790473926/Screenshot_2026-09-27_at_7.21.33_AM_ms3nie.png"
+curl -sL -o /tmp/mri-theme/employee.png "https://res.cloudinary.com/delubzbh2/image/upload/v1790473925/Screenshot_2026-09-27_at_7.20.51_AM_hba8qf.png"
+```
+
+All numbers below are **measured**, in CSS px (device px ÷ 2). Method and the re-run recipe: **§8.24**.
+
+#### 7.2.1 Two shells, one language
+
+Both references are dashboards, and they show the same visual language with a different chrome:
+
+| | Admin shell | Employee shell |
+|---|---|---|
+| Top bar | navy, **54 px** tall | navy, **58 px** tall |
+| Nav | **left sidebar, 299 px**, white + `border-r` | **horizontal nav, centred** in the bar |
+| Content | `px-6`, 1440 px wide (x 324→1764) | `max-w-[1563px] mx-auto`, ~110 px margins |
+| Stat row | `grid-cols-4` (4 cards) | `grid-cols-3` (3 cards) |
+| Panels | `grid-cols-2` (2 cards) | `grid-cols-2`, then one full-width card |
+| Menu | `ADMIN MENU` eyebrow → Dashboard, Calendar, Rooms, Equipment | Dashboard, Find Room, Bookings, Wait-List, Meetings |
+
+**Rule:** pick the shell from the user's role (admin → sidebar, employee → top nav) and never mix them. Both
+shells share every colour, card, button and empty-state rule below, so an admin page and an employee page
+built from these primitives must look like one product. `/login` and any bare form screen stay §7.1.
+
+#### 7.2.2 New colour tokens (add to `frontend/tailwind.config.ts`; the 11 §7.1 tokens stay as they are)
+
+| Token | Hex | Use |
+|---|---|---|
+| `navySoft` | `#41487E` | active nav pill **on** the navy bar (employee) — a lighter navy, not a tint of white |
+| `navyLabel` | `#D2D4E1` | inactive nav label on navy |
+| `shell` | `#F5F5F5` | **the page background** behind all cards (both shells) — the single most-used new value |
+| `heading` | `#191E2B` | page h1 + panel card titles. **Darker than §7.1's `ink` (#232324)** — use `heading` for headings, keep `ink` for field text |
+| `body` | `#3B4352` | sidebar nav labels, outline-button labels, secondary rows |
+| `statLabel` | `#4D5664` | the stat card's bottom label |
+| `faint` | `#999FAC` | the `ADMIN MENU` eyebrow and other faint captions on white |
+| `rule` | `#E5E6EA` | sidebar right hairline, card separators (lighter than §7.1's `hairline`) |
+| `tintStrong` | `#EEF0FE` | the stat-number tile. **§7.1's `tint` (#F4F5FE) is too weak here** — keep `tint` for the auth role cards |
+| `roleBg` | `#FFFBEC` | role badge fill — Tailwind `amber-50` |
+| `roleRule` | `#FAE591` | role badge 1px border — Tailwind `amber-200` |
+| `roleInk` | `#AC5415` | role badge label — Tailwind `amber-700` |
+
+Plus one rule that is not a token but a **literal**: cards and outlined buttons use a **1 px solid `#000000`**
+border — the same "black hairline, not a grey token" decision §7.1 already makes for text fields. Reuse
+`border-black`; do not invent a grey.
+
+**What did NOT change:** `navy` `#1F2867` is still the brand and still measures exactly the same in all four
+screenshots, and `muted` `#6B7180` is still the sub-caption / empty-state colour. The dashboard references
+*confirm* §7.1 rather than contradicting it.
+
+#### 7.2.3 Shell geometry
+
+**Navy top bar (both shells)** — `bg-navy`, white content, `px-6` right padding (content ends x 1764 in a
+1790 viewport; the bar has no visible bottom border or shadow).
+- Wordmark, left, x 19.5→237, ink 17.5 tall, white — same "Room Meeting Intelligence" lockup as §7.1.
+- Right cluster, in order: **user name** (white, 15 px, x 1527→1614) → **role badge** → **Logout**
+  (white, 15 px, x 1719→1758). The badge is a 1 px-bordered pill, ~24 px tall, vertically centred.
+
+**Admin sidebar** — `w-[299px]`, `bg-white`, `border-r border-rule` (1 px `#E5E6EA`), full height below the bar.
+- `ADMIN MENU` eyebrow: `text-xs uppercase tracking-[0.08em] text-faint`, left edge x 24.5.
+- Nav items: an item block spans x 12→287 (`mx-3` inside the 299 px sidebar), is **44 px tall**, and repeats
+  on a **48 px pitch** (labels at ink y 130.5 / 178.5 / 227 / 274.5). Icon 20×20 at x 23, label 15 px at
+  x 53 (≈10 px gap).
+- **Active item = solid `bg-navy`, white icon + white label, `rounded` (4 px).** Inactive = transparent, label
+  `body` `#3B4352`. There are **no dividers** between items.
+
+**Employee top nav** — horizontally **centred** in the bar (nav block centre 897 vs bar centre 894 at 1788).
+- Items at x 615 / 746 / 875 / 995 / 1112 → pitch 118–130 px.
+- **Active item = `bg-navySoft` `#41487E` pill, 118 × 35.5 px, `rounded`, white 16 px icon + white 15 px
+  label.** Inactive = transparent, label `navyLabel` `#D2D4E1` 15 px.
+
+#### 7.2.4 The card (most-reused primitive — build one `AppCard` from this)
+
+- `bg-white` + **`border border-black` (1 px `#000`)** + `rounded` (4 px; the corner arc measures ~3–4 px).
+- A **very soft shadow**: outside the border the page background ramps `#F5F5F5 → #F0F0F0` over ~3 px on
+  every side. That is `shadow-sm` at most — **do not use `shadow-md`/`shadow-lg`**, and do not add a
+  coloured glow.
+- Padding **~21–24 px** (measured 21.5 top on the stat tile, 25.5 on panel titles). Use `p-6` and accept ±2.
+- Heights are content-driven, not tokens: stat card 152–154, admin panel 168, employee panel 216,
+  full-width card 268.
+
+**Grid gaps (measured, and they genuinely differ — do not "harmonise" them):**
+stat rows `gap-4` (**16 px**), the two-wide panel row `gap-5` (**20 px**). Border-to-border the gaps measure
+17 px and 21 px respectively, the extra ~1 px being the shadow.
+
+#### 7.2.5 Stat card (admin 4-up, employee 3-up)
+
+Layout is **top tile, bottom label, deliberate white space between** — the tile sits in the card's top-left
+padding corner and the label sits on the card's bottom padding edge, leaving ~57 px of empty white between
+them. **Do not centre the tile or pull the label up**; the gap is the design.
+
+- **Tile: 40 × 39 px, `bg-tintStrong` `#EEF0FE`, `rounded` (4 px).**
+- **Numeral: `#1F2867`, ink 15 × 16 px (≈22–24 px type), centred in the tile** (measured numeral centre x
+  364.75 / y 198.75 vs tile centre 364.75 / 198.75 — dead centre).
+- **Label on the card's bottom edge: `statLabel` `#4D5664`, 15 px.** Admin labels: `Today's Bookings`,
+  `Cancelled`, `No Show`, `Active Rooms`. Employee labels: `Today's Meetings`, `Upcoming Meetings`,
+  `Rooms Available`.
+
+#### 7.2.6 Panel card (content cards)
+
+- **Title** `heading` `#191E2B`, ~18 px bold (ink 14.5–15.5), top-left. Admin: `Today's Bookings`,
+  `Room Usage`. Employee: `Today's Meetings`, `Quick Action`, `Upcoming Meetings`.
+- **Sub-caption** immediately below (≈8 px gap): `muted` `#6B7180`, 14 px. `Meetings scheduled for today`,
+  `Today's room booking statistics`, `Your meetings scheduled for today`, `Your upcoming room bookings`.
+- **Empty state = ONE line of `muted` 14 px, horizontally centred in the card, ~46 px below the
+  sub-caption.** No icon, no dashed placeholder box, no illustration, no "clear filters" button. Copy in the
+  references: `No bookings for today.`, `No room usage data available.`, `No meetings for today.`,
+  `No upcoming meetings.` — always a full sentence with a period.
+  This is the same one-line pattern §7.1 expects from `EmptyState`, so **restyle `components/common/EmptyState.tsx`
+  to this** rather than writing a second empty state.
+
+#### 7.2.7 Dashboard buttons
+
+These are **not** §7.1's `h-11` form button — that height is for form submits. In the shell:
+
+| Variant | Spec | Reference |
+|---|---|---|
+| Primary | `bg-navy`, **no border**, **40 px tall** (`h-10`), `rounded` (4 px), white 15 px label, ~20 px horizontal padding | `Find a Room` |
+| Outline | `bg-white` + 1 px border, **40 px tall**, label `body` `#3B4352` 15 px | `View My Bookings` |
+| Primary + icon | primary, with a leading 16 px inline-SVG icon (the `Book a Room` button leads with `+`) | `Book a Room` |
+
+**Capitalisation differs from auth and that is intentional:** dashboard buttons are **Title Case**
+(`Find a Room`), while §7.1's auth submit is UPPERCASE (`SIGN IN`). Do not uppercase dashboard buttons.
+The two quick-action buttons in the employee shell are stacked and **centred**, not full-width.
+
+#### 7.2.8 Type scale — extends §7.1's table
+
+Sizes are measured ink heights mapped to the nearest Tailwind step. §7.1's 30 / 15 / 14 / 12 steps are all
+**confirmed** by these references; only the panel-title step is new.
+
+| Measured ink | Class | Use |
+|---|---|---|
+| 22.5 (cap) | `text-[30px] leading-[59px] font-bold` | page h1 — **§7.1's existing step** |
+| 14.5–15.5 | `text-lg font-bold` (18 px) | **panel/card title — new step** |
+| 11 (cap) | `text-[15px] font-semibold` | stat label, nav label, button label, top-bar user/logout — **§7.1's existing step** |
+| 13 | `text-sm` (14 px) | sub-caption, empty state — **§7.1's existing step** |
+| 8–9.5 (cap) | `text-xs uppercase tracking-[0.08em]` | `ADMIN MENU` eyebrow, role badge — **§7.1's existing step** |
+
+#### 7.2.9 Copy rules
+
+- Page greeting: **`Welcome Back, {firstName}`** in `heading` 30 px, with a one-line `muted` 14 px sub ~28 px
+  below. Admin sub: `Here's what's happening today.` Employee sub:
+  `Here is what's happening with your meetings today.`
+  The two references differ in apostrophe style (curly vs straight) — **normalise to the straight `'`** used by
+  §7.1's copy, same call as fixing the reference's `meeings` typo (§9.1).
+- Nav labels are Title Case, except **`Wait-List`**, which is hyphenated in the reference — keep it verbatim.
+- Role badge text is the role name in caps: `ADMIN` / `EMPLOYEE`.
+- Brand wordmark and copyright are unchanged from §7.1 (`Room / Meeting Intelligence`, `© 2026 Room Meeting
+  Intelligence`).
+
+#### 7.2.10 Rollout — the first mechanical steps of Phase 14
+
+1. Add the 12 §7.2 tokens to `frontend/tailwind.config.ts` (keep all 11 §7.1 tokens).
+2. Build **one** `AppLayout` variant per role from the §7.2.3 geometry — the bar, the sidebar, the top nav —
+   and have every authenticated route render inside it. `AppLayout`/`Navbar`/`Sidebar` already exist from
+   Phase 1 as placeholder chrome; **restyle them, do not add a parallel layout.**
+3. Extract the shared primitives so screens stay declarative: `AppCard` (§7.2.4), `StatCard` (§7.2.5),
+   `PanelCard` + the one-line `EmptyState` (§7.2.6), and `Button` primary/outline/icon at 40 px (§7.2.7).
+4. Then re-measure the rendered shell against these two references using §7.2's numbers before building any
+   feature content on top of it.
+
+#### 7.2.11 What these two images do NOT decide
+
+No tables/lists, no data-table header or row styling, no forms inside the shell, no modals, no toasts, no
+calendar grid, no charts, no room cards, no detail pages. Those inherit §7.1 (controls, type, colours) plus
+the §7.2 card/button/empty-state primitives, and their per-screen layout is still to be designed — **ask the
+user for those designs rather than improvising**, exactly as Phase 14 was going to ask for the room-directory
+layout (§9 "Next").
+
+> **Resolved for Phase 14 by user decision (2026-09-27, §9.3):** the user was shown this choice and chose to
+> **improvise** the room-directory / room-details / admin-rooms layouts rather than supply designs, so those
+> three screens are now built on the §7.1/§7.2 primitives without a pixel reference. The exclusion that is
+> **still live** is the *list row*: the admin dashboard's `Today's Bookings` and `Room Usage` panels still have
+> no row markup, so a panel with data renders as heading + caption only. That one still needs a user design.
+
 ## 8. Key Gotchas / Team Memory
 
 1. **Backend runtime is `ts-node`, NOT `tsx`.** `tsx`/esbuild cannot emit TS decorator metadata,
@@ -919,6 +1308,38 @@ Note: `requirement.md` data model also lists `PasswordResetToken` — **out of s
     **drops all open sockets** (clients see `disconnect: io server disconnect` / `transport close`).
     During Phase 13 this is a real hazard for any multi-minute socket test: don't edit backend files
     while `socket-verify` is waiting on the 90s check-in window.
+22. **An invalid Tailwind class fails SILENTLY — the JSX can lie about the design.** The tab labels carried a
+    stray `bold` (not a Tailwind utility; the weight class is `font-bold`). It emitted no CSS, so the labels
+    rendered at `font-medium` — 0.66× the reference ink — while the code read as though it were bold. Class
+    order is not a priority mechanism either: the submit button had both `lg:mt-6` and a conditional
+    `lg:mt-3.5`, and which one applied was decided by Tailwind's *generated-CSS* order, not the string
+    (removing the "override" moved the button 4px). **After any class-list edit, re-measure ink with the
+    §7.1 workflow — do not trust reading the JSX.**
+23. **Changing one margin in a vertically-centred form moves everything else (§7.1 step 5).** Two coupled
+    effects bit during the auth build: a taller element pushes the whole column up by half its delta, and
+    adjacent-sibling margins collapse (a mode-specific `mt-*` on a wrapper is silently swallowed by the
+    child's larger `mt-8`). Put the offset on the outer column instead — that is why register mode's
+    correction lives on the `max-w-[428px]` div, not on the panel.
+24. **A design screenshot can be turned into a spec WITHOUT image vision — measure the PNG, OCR the text.**
+    The 2026-09-27 session's model had no image input, and §7.2 was still produced exactly. The method (reuse
+    it before concluding you cannot see an image):
+    - **Colours:** `PIL` + `collections.Counter` over `img.getdata()` → the dominant hexes with their share.
+      Everything in §7.2 came out of that: `shell #F5F5F5`, `navySoft #41487E`, `tintStrong #EEF0FE`,
+      `roleBg/#FFFBEC`, `heading #191E2B`, `statLabel #4D5664`.
+    - **Structure:** `itertools.groupby` over a row/column of `getpixel()` hex strings, with run lengths —
+      that gives bar heights, sidebar width, card rects, grid gaps and borders exactly (e.g. the `gap-4` vs
+      `gap-5` difference, and the 1 px `#000` card border). Draw a 64×32 label map first to see the layout
+      before trusting any single scan.
+    - **Text:** OCR gives both the copy and a per-string ink bbox. Ink height ÷ ~0.73 = font size, which is
+      how the type scale in §7.2.8 was derived and how it confirmed §7.1's 30/15/14/12 steps.
+    - **OCR venv:** `rapidocr_onnxruntime` is installed **only** in
+      `/var/folders/lj/3mvgnr_55znbrs8jb3fqg30w0000gq/T/opencode/ocrvenv` (python 3.9, has numpy). It is not
+      in the repo and not in any project venv — if that temp dir is gone, `pip install rapidocr_onnxruntime`
+      into a scratch venv, or fall back to colour/geometry only and say so in the doc.
+    - **What this method cannot do:** judge visual hierarchy, alignment intent, or anything about how a
+      screen *feels*. It gave §7.2 real numbers, not a judgement. Anything it inferred (18 px titles, the
+      `text-lg` mapping, the meaning of the tint tile) is flagged as measured-but-inferred in §7.2 and should
+      be confirmed against a render.
 
 ## 9. Pending Decisions / Next Steps
 
@@ -1076,11 +1497,85 @@ Note: `requirement.md` data model also lists `PasswordResetToken` — **out of s
 - Frontend scaffolding already present: Vite/Tailwind/Apollo with `credentials: 'include'`, the route
   table with `ProtectedRoute`/`AdminRoute`, `AuthContext`/`useAuth`, AppLayout/Navbar/Sidebar, and the
   shared components (`Button`, `Modal`, `LoadingState`, `EmptyState`, `ErrorState`, `StatusBadge`,
-  `Input`, `Select`, `DateTimePicker`). Every page is still a `PlaceholderPage`.
+  `Input`, `Select`, `DateTimePicker`). **Only `/login` is a real page — it was rebuilt from the user's design
+  images and established the app-wide UI baseline in §7.1; every other route still renders
+  `PlaceholderPage`.** Build Phase 14's UI out of the §7.1 tokens and the `components/auth/` primitives, and
+  diff it against the design the same way (§7.1 workflow) — and ask the user for the Rooms designs if they
+  have them, since the login screens only define the shared language (navy/blue, 44px controls, 4px radii),
+  not the room-directory layout.
+- **Phase 14 now starts with the §7.2 shell, not with a page.** The 2026-09-27 dashboard references define
+  the authenticated chrome every Phase 14–23 page sits inside, and the tokens they need are not in
+  `tailwind.config.ts` yet. Do §7.2.10 "Rollout" steps 1–3 (tokens → role-aware `AppLayout` → `AppCard` /
+  `StatCard` / `PanelCard` / `EmptyState` / 40 px `Button` variants) **first**, re-measure the shell against
+  both references, and only then build the Room Directory / Room Details / Admin Rooms pages inside it.
+  `plan.md` §Phase 14's "Backend adjustments" step is unchanged and still unnecessary.
 - **Socket client is Phase 23, not 14** — but note the Phase 13 handshake rule: connect only when
   authenticated, and re-connect on login/logout. Vite already proxies `/socket.io` with `ws: true`.
 - Remember when sending dates: GraphQL `DateTimeISO` requires **full ISO-8601 with seconds**
   (`2026-09-26T18:00:00+05:30`; `…T18:00+05:30` is rejected) — see §8.12.
+
+### 9.1 Decided 2026-09-26 — UI design system (user instruction: "the whole application should follow the same design as the images")
+
+- **The two supplied screenshots are the app-wide UI source of truth**, binding on every frontend phase
+  (14–23), not a one-screen brief. They were given as the product's visual standard, and per-page
+  improvisation is exactly what the token set exists to prevent. Spec: §7.1.
+- **Tokens live in `frontend/tailwind.config.ts`** (the 11 measured colours). Components reference tokens
+  only; a screen that needs a new value extends the config and §7.1 rather than hardcoding.
+- **The `components/auth/` primitives are the reference implementations** to copy for new screens — they are
+  deliberately auth-named but nothing about them is auth-specific except their names.
+- **The shared `Button` / `Input` / `Select` were left untouched.** They back every placeholder route, so
+  restyling them now is a wide, invisible change; consolidate them into §7.1 once a second real page exists.
+- **No icon library and no webfont were added** — the project depends on neither, and two icons plus one
+  screen do not justify either. Inline SVG with `currentColor` + Tailwind's system stack.
+- **"Forgot password?" is UI-only**: it sets the inline notice *"Password reset is not available yet. Please
+  contact your administrator."*, consistent with the FR-6/FR-7 out-of-scope decision above. No link, no route.
+- **The reference's typo was corrected** ("meeings" → "meetings"). The images are the design intent, not a
+  byte-exact artifact to reproduce defects from — same logic as fixing spacing that fights the layout.
+- **Register's confirm-password is client-side only.** `SignUpInput` still takes exactly
+  `firstName`/`lastName`/`email`/`password`; no backend change was made or needed.
+- **Fidelity is measured, not eyeballed** (§7.1 workflow). The model used for this session had no image
+  vision, which is why every value here is a pixel measurement — and why that method is written down for the
+  next screen.
+
+### 9.2 Decided 2026-09-27 — app shell & dashboard theme (user instruction: "access the theme … so that it will follow the theme of the admin … and employee panel")
+
+- **The two dashboard screenshots are the app-wide UI source of truth for every AUTHENTICATED page**, exactly
+  as the login pair is for the auth screen. They are the second half of the design contract, not a
+  dashboard-only brief. Spec: **§7.2**. This is the user's fourth and fifth design reference; the set is now
+  login + register + admin dashboard + employee dashboard.
+- **Two shells, chosen by role, never mixed:** admin gets the 299 px left sidebar, employee gets the centred
+  horizontal top nav. They share every colour, card, button and empty-state rule, so the two must read as one
+  product. `/login` and bare form screens stay §7.1.
+- **12 new tokens** were measured (`navySoft`, `navyLabel`, `shell`, `heading`, `body`, `statLabel`, `faint`,
+  `rule`, `tintStrong`, `roleBg`, `roleRule`, `roleInk`) and are recorded in §7.2.2. **They are NOT yet in
+  `frontend/tailwind.config.ts`** — this session changed documentation only, on purpose, so no half-applied
+  theme lands in the tree. Adding them is step 1 of §7.2.10 "Rollout", i.e. the first thing Phase 14 does.
+- **`heading` (`#191E2B`) is a new, darker ink than §7.1's `ink` (`#232324`)**, and both are kept:
+  `heading` for page/card titles, `ink` for form field text (where §7.1 measured `#232324`). They are close
+  enough that swapping them is easy and wrong — do not "simplify" by deleting one.
+- **`tintStrong` (`#EEF0FE`) sits alongside §7.1's `tint` (`#F4F5FE`)** rather than replacing it: the stat
+  tile needs the stronger value, the auth role card was measured against the weaker one.
+- **Cards use a 1 px `#000000` border plus a barely-there shadow** — the same "black hairline, not a grey
+  token" decision §7.1 already made for text fields, now generalised. `shadow-sm` at most.
+- **Dashboard buttons are 40 px, Title Case, and are not §7.1's 44 px UPPERCASE form button.** The auth
+  submit and the dashboard primary are deliberately different components; do not unify them, and do not
+  uppercase a dashboard button.
+- **The one-line centred muted empty state replaces the old `EmptyState` look.** `components/common/
+  EmptyState.tsx` (Phase 1) should be restyled to §7.2.6 rather than a second empty state being written —
+  same reasoning as the §7.1 decision to leave `Button`/`Input` alone, except this one now has a real
+  reference to match and every dashboard needs it.
+- **The `gap-4` (stat rows) vs `gap-5` (two-wide panel row) difference is recorded as measured, not
+  harmonised.** It is reproducible in both images, so it is intentional; if a later screen needs one gap
+  everywhere, that is a design change to raise with the user, not a cleanup.
+- **`Wait-List` keeps its hyphen** and the greeting is `Welcome Back, {firstName}` — both taken verbatim from
+  the references. The two references disagree on apostrophe style; the straight `'` (already used by §7.1's
+  copy) wins, the same call as correcting the `meeings` typo in §9.1.
+- **This session's model had no image vision**, so §7.2 was produced by measuring the PNGs and OCR-ing the
+  text (§8.24). Consequences, stated plainly: the numbers are measurements, but the *interpretation* (that
+  the 40×39 tint tile holds the stat numeral, that panel titles are 18 px, that the layout is
+  tile-top/label-bottom) is inference from geometry, and the shell must be re-measured against a real render
+  before feature content is built on it. What the images do **not** decide — tables, forms, modals, calendar,
+  charts, room cards — is listed in §7.2.11 and should be asked for, not invented.
 
 ## 10. Verification Checklist Before Starting New Work
 
@@ -1091,5 +1586,51 @@ Note: `requirement.md` data model also lists `PasswordResetToken` — **out of s
 - [ ] `npm run socket:verify -w backend` → 27/27 checks passed (only needed when touching `realtime/`,
       `notifications`, or the session/cookie plumbing; takes ~2.5 min because it waits for a real
       check-in window)
+- [ ] Frontend: `npm run typecheck` passes and `npm run build -w frontend` is clean (no test runner or lint
+      exists — §8.7)
+- [ ] Frontend UI: any new/changed screen is diffed against its design per §7.1 (ink blocks within ~2px at
+      1783×895 @2x, plus a 390×844 mobile check) and uses §7.1 tokens — no new hex/size literals
+- [ ] Frontend shell: the admin and employee shells match §7.2.3 (bar 54/58 px, sidebar 299 px, nav pitch)
+      and use the §7.2.2 tokens. **These tokens are now in `tailwind.config.ts` and the shell is
+      re-measured against both references (§5)** — if a shell measurement drifts again, re-run the §8.24
+      measurement rather than eyeballing it
+- [ ] Frontend primitives: any new card/stat/panel/empty state comes from §7.2.4–7.2.7, and dashboard
+      buttons are 40 px Title Case (not §7.1's 44 px UPPERCASE form button)
+- [ ] Frontend list rows: **do not invent** list/table row markup — §7.2.11 excludes it and the two admin
+      dashboard panels are still waiting on the user's row design (§9.3)
 
 Report a change/decision here when it affects how the app runs (tooling, schema, phases, conventions).
+
+### 9.3 Decided 2026-09-27 — building the shell + full Phase 14 frontend
+
+Authorisation: the user asked for the §7.2 theme to be *built and applied* (not just specified) and then
+chose to do the **full Phase 14** frontend in the same pass, including the room catalog.
+
+- **Scope: frontend only.** No backend changes were made, and none turned out to be necessary — the existing
+  `rooms`/`room` queries, `RoomFilterInput` and the room mutations already covered everything Phase 14 needs.
+- **`react-icons@5.7.0` was added, reversing §9.1's "no icon library" decision.** The user chose it over
+  hand-rolled SVGs. Nav icons come from it. `npm audit` reports no advisory for the package (the 7 open
+  advisories in the tree are pre-existing). **If a later phase wants to go back to zero icon dependencies,
+  this is the decision to revisit — the only consumers are `TopNav` and `Sidebar`.**
+- **Navigation follows the reference labels verbatim** (`Dashboard`, `Calendar`, `Rooms`, `Equipment`,
+  `Wait-List`, `Meetings`), and each label got a real route. `Calendar` and `Analytics` exist as
+  placeholder pages because their phases (12) are backend-only so far.
+- **Below `lg` the top nav falls back to a full-width horizontal strip**; at `lg+` the admin gets the
+  299 px sidebar and the employee keeps the inline pill nav. The header wraps rather than overflowing.
+- **`PageHeader` takes an explicit `topPad` prop** (admin `pt-8`, employee `pt-10`) because the two
+  reference screenshots genuinely differ. This is measured, not a magic number — do not collapse it.
+- **Dashboard definitions the user settled:**
+  - **"Active Rooms" = `AVAILABLE` + `MAINTENANCE`.** Not just `AVAILABLE`.
+  - **Employee "Today's Meetings" is `myMeetings` filtered client-side to the browser-local day.** Caveat
+    worth remembering: the backend only returns *strictly future* confirmed meetings, so a meeting that
+    already started today is **missing** from that panel. Fixing it properly needs a backend date-range
+    query — out of scope for a frontend-only phase.
+  - **"Today" is the browser's local day**, serialised to ISO with seconds. The docs specify no timezone
+    handling, so none was invented.
+- **Equipment filter/display was left out of Phase 14** — it belongs to the Phase 15 equipment phase, so
+  `RoomForm` and the filters have no equipment fields.
+- **Open item needing the user:** the row design for the admin dashboard's `Today's Bookings` and
+  `Room Usage` panels. Both fetch real data; neither renders rows. See §7.2.11 and §5.
+- **Cosmetic, pre-existing, not from this work:** the app 404s on `/favicon.ico` in the browser console
+  because `frontend/index.html` has no favicon link and there is no `frontend/public/` directory. §7.1
+  forbids adding image assets without permission, so it was left alone. One line to fix if wanted.

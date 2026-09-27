@@ -1,27 +1,31 @@
 import { NavLink } from 'react-router-dom';
-import { navLinkClass } from './AppLayout';
+import { copy, layout, typeScale } from '../../theme';
+import { adminNavItems } from '../../theme/navigation';
 import { useAuth } from '../../hooks/useAuth';
-
-const navItems = [
-  { to: '/', label: 'Dashboard', adminOnly: false },
-  { to: '/rooms', label: 'Rooms', adminOnly: false },
-  { to: '/bookings', label: 'My Bookings', adminOnly: false },
-  { to: '/admin/rooms', label: 'Admin Rooms', adminOnly: true },
-  { to: '/admin/calendar', label: 'Admin Calendar', adminOnly: true },
-  { to: '/admin/analytics', label: 'Analytics', adminOnly: true },
-];
 
 export const Sidebar = () => {
   const { isAdmin } = useAuth();
-  const visibleItems = navItems.filter(
-    (item) => !item.adminOnly || isAdmin,
-  );
+
+  if (!isAdmin) return null;
 
   return (
-    <aside className="w-56 shrink-0 border-r border-slate-200 bg-white p-4">
-      <nav className="flex flex-col gap-1">
-        {visibleItems.map((item) => (
-          <NavLink key={item.to} to={item.to} className={navLinkClass} end={item.to === '/'}>
+    <aside className="hidden w-[299px] shrink-0 border-r border-rule bg-white lg:block">
+      <div className="px-6 pt-5">
+        <p className={typeScale.eyebrow}>{copy.adminMenuEyebrow}</p>
+      </div>
+      <nav className="mt-6 flex flex-col gap-1">
+        {adminNavItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) =>
+              `${layout.sidebarItem} ${typeScale.navLabel} ${
+                isActive ? layout.sidebarActive : layout.sidebarInactive
+              }`
+            }
+          >
+            <item.icon className="h-5 w-5" aria-hidden="true" />
             {item.label}
           </NavLink>
         ))}

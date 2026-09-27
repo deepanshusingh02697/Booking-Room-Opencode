@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '../common/Button';
+import { TopNav } from './TopNav';
+import { layout } from '../../theme';
+import { copy } from '../../theme';
+import { UserRole } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 
 export const Navbar = () => {
-  const { user, logOut } = useAuth();
+  const { user, isAdmin, logOut } = useAuth();
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -19,25 +22,44 @@ export const Navbar = () => {
   };
 
   return (
-    <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-      <Link to="/" className="text-lg font-bold text-slate-800">
-        Meeting Room Intelligence
+    <header
+      className={`flex flex-wrap items-center gap-x-4 gap-y-2 bg-navy px-4 py-2 sm:px-6 lg:flex-nowrap lg:gap-x-4 lg:py-0 lg:px-6 ${
+        isAdmin ? 'lg:h-[54px]' : 'lg:h-[58px]'
+      }`}
+    >
+      <Link
+        to="/"
+        className="shrink-0 whitespace-nowrap text-lg font-bold text-white"
+      >
+        {copy.wordmark}
       </Link>
-      <div className="flex items-center gap-4 text-sm text-slate-600">
-        {user ? (
+
+      <div
+        className={`order-last w-full min-w-0 overflow-x-auto lg:order-none lg:w-auto lg:flex-1 ${
+          isAdmin ? 'lg:hidden' : ''
+        }`}
+      >
+        <TopNav />
+      </div>
+
+      <div className="ml-auto flex min-w-0 items-center justify-end gap-3 whitespace-nowrap">
+        {user && (
           <>
-            <span className="font-medium text-slate-800">
+            <span className="truncate text-[15px] font-semibold text-white">
               {user.firstName} {user.lastName}
             </span>
-            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-              {user.role}
+            <span className={layout.roleBadge}>
+              {user.role === UserRole.ADMIN ? 'Admin' : 'Employee'}
             </span>
-            <Button variant="secondary" loading={loggingOut} onClick={handleLogOut}>
-              Log out
-            </Button>
+            <button
+              type="button"
+              onClick={handleLogOut}
+              disabled={loggingOut}
+              className="text-[15px] font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-50"
+            >
+              Logout
+            </button>
           </>
-        ) : (
-          <span>Signed out</span>
         )}
       </div>
     </header>

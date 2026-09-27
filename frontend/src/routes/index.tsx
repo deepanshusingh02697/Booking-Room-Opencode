@@ -2,6 +2,10 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { LoginPage } from '../pages/login/LoginPage';
+import { DashboardPage } from '../pages/dashboard/DashboardPage';
+import { RoomDirectoryPage } from '../pages/room-directory/RoomDirectoryPage';
+import { RoomDetailsPage } from '../pages/room-details/RoomDetailsPage';
+import { AdminRoomsPage } from '../pages/admin-rooms/AdminRoomsPage';
 import { AdminRoute } from './AdminRoute';
 import { ProtectedRoute } from './ProtectedRoute';
 
@@ -11,16 +15,52 @@ export const AppRoutes = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
-          <Route index element={<PlaceholderPage title="Dashboard" />} />
-          <Route path="rooms" element={<PlaceholderPage title="Room Directory" />} />
-          <Route path="rooms/:id" element={<PlaceholderPage title="Room Details" />} />
-          <Route path="create-booking" element={<PlaceholderPage title="Create Booking" />} />
-          <Route path="bookings" element={<PlaceholderPage title="My Bookings" />} />
-          <Route path="bookings/:id" element={<PlaceholderPage title="Booking Details" />} />
+          <Route index element={<DashboardPage />} />
+          <Route
+            path="rooms"
+            element={<RoomDirectoryPage />}
+          />
+          <Route path="rooms/:id" element={<RoomDetailsPage />} />
+          <Route
+            path="create-booking"
+            element={
+              <PlaceholderPage title="Create Booking" phase="Phase 16" />
+            }
+          />
+          <Route
+            path="bookings"
+            element={<PlaceholderPage title="My Bookings" phase="Phase 17" />}
+          />
+          <Route
+            path="bookings/:id"
+            element={
+              <PlaceholderPage title="Booking Details" phase="Phase 17" />
+            }
+          />
+          <Route
+            path="wait-list"
+            element={<PlaceholderPage title="Wait-List" phase="Phase 20" />}
+          />
+          <Route
+            path="meetings"
+            element={<PlaceholderPage title="Meetings" phase="Phase 17" />}
+          />
           <Route element={<AdminRoute />}>
-            <Route path="admin/rooms" element={<PlaceholderPage title="Admin Rooms" />} />
-            <Route path="admin/calendar" element={<PlaceholderPage title="Admin Calendar" />} />
-            <Route path="admin/analytics" element={<PlaceholderPage title="Analytics" />} />
+            <Route path="admin/rooms" element={<AdminRoomsPage />} />
+            <Route
+              path="admin/calendar"
+              element={
+                <PlaceholderPage title="Admin Calendar" phase="Phase 22" />
+              }
+            />
+            <Route
+              path="admin/analytics"
+              element={<PlaceholderPage title="Analytics" phase="Phase 22" />}
+            />
+            <Route
+              path="equipment"
+              element={<PlaceholderPage title="Equipment" phase="Phase 15" />}
+            />
           </Route>
         </Route>
       </Route>

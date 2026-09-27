@@ -1,4 +1,5 @@
 import type { SelectHTMLAttributes } from 'react';
+import { field } from '../../theme';
 
 type Option = {
   value: string;
@@ -11,18 +12,27 @@ type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   error?: string;
 };
 
-export const Select = ({ label, options, error, className = '', ...rest }: SelectProps) => {
+export const Select = ({
+  label,
+  options,
+  error,
+  className = '',
+  id,
+  ...rest
+}: SelectProps) => {
+  const selectId = id ?? rest.name;
+
   return (
-    <div className="flex flex-col gap-1">
+    <div>
       {label && (
-        <label htmlFor={rest.name} className="text-sm font-medium text-slate-700">
+        <label htmlFor={selectId} className={field.label}>
           {label}
         </label>
       )}
       <select
-        className={`w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-          error ? 'border-red-400' : ''
-        } ${className}`}
+        id={selectId}
+        aria-invalid={error ? true : undefined}
+        className={`${field.control} mt-2 ${error ? field.controlError : field.controlOk} ${className}`}
         {...rest}
       >
         {options.map((opt) => (
@@ -31,7 +41,7 @@ export const Select = ({ label, options, error, className = '', ...rest }: Selec
           </option>
         ))}
       </select>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className={field.error}>{error}</p>}
     </div>
   );
 };
