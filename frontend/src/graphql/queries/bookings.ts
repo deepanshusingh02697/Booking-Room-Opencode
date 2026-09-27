@@ -106,6 +106,8 @@ export const BOOKING_DETAILS_QUERY = gql`
       endTime
       recurrenceId
       hasCheckedIn
+      checkInWindowOpensAt
+      checkInWindowClosesAt
       createdAt
       updatedAt
       room {

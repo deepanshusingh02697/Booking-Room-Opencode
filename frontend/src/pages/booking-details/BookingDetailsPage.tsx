@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@apollo/client';
-import { LuUserPlus } from 'react-icons/lu';
+import { useMutation, useQuery } from '@apollo/client';
+import { LuCheck, LuUserPlus } from 'react-icons/lu';
 import { AppCard } from '../../components/common/AppCard';
 import { Button } from '../../components/common/Button';
 import { DetailRow } from '../../components/common/DetailRow';
@@ -12,6 +12,11 @@ import { LoadingState } from '../../components/common/LoadingState';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import {
+  CHECK_IN_MUTATION,
+  type CheckInData,
+  type CheckInVars,
+} from '../../graphql/mutations/bookings';
+import {
   BOOKING_DETAILS_QUERY,
   RECURRING_BOOKING_GROUP_QUERY,
   type BookingDetailsData,
@@ -20,6 +25,7 @@ import {
   type RecurringBookingGroupVars,
 } from '../../graphql/queries/bookings';
 import { useAuth } from '../../hooks/useAuth';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import {
   bookingStatusMeta,
   roomStatusMeta,
@@ -31,7 +37,7 @@ import {
   type Employee,
 } from '../../types';
 import { formatDateTime, formatTime } from '../../utils/date';
-import { getGraphQLErrorCode } from '../../utils/errors';
+import { getGraphQLErrorCode, getGraphQLErrorMessage } from '../../utils/errors';
 import { AddParticipantsModal } from './AddParticipantsModal';
 import { CancelBookingModal } from './CancelBookingModal';
 import { RecurringSeriesPanel } from './RecurringSeriesPanel';
@@ -67,6 +73,8 @@ export const BookingDetailsPage = () => {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [removing, setRemoving] = useState<RemovingParticipant>(null);
+  const [checkInError, setCheckInError] = useState<string | null>(null);
+  const [checkInJustHappened, setCheckInJustHappened] = useState(false);
 
   const { data, loading, error, refetch } = useQuery<
     BookingDetailsData,
@@ -74,6 +82,13 @@ export const BookingDetailsPage = () => {
   >(BOOKING_DETAILS_QUERY, {
     variables: { id: bookingId },
     skip: !validId,
+  });
+
+  // The no-show release and the completion sweep run on a cron and emit no
+  // socket event, so a booking can change status while the tab is in the
+  // background. Refetching on focus is how this page notices.
+  useRefetchOnFocus(() => {
+    if (validId) void refetch();
   });
 
   const booking = data?.bookingDetails;
@@ -102,6 +117,46 @@ export const BookingDetailsPage = () => {
   const isSelfParticipant = (participant: { employeeId: number }) =>
     participant.employeeId === user?.id;
 
+  // FR-38 is stricter than FR-28 and gets NO admin exemption: the server rejects
+  // an admin who is neither the organiser nor a listed participant, so
+  // `isOrganiser` must not be reused here — it would offer the button to an
+  // admin who is guaranteed to be refused.
+  const isBookingOrganiser = booking !== undefined && booking.organizerId === user?.id;
+  const alreadyCheckedIn = Boolean(booking?.checkIn) || Boolean(booking?.hasCheckedIn);
+  const canCheckIn =
+    booking !== undefined &&
+    isConfirmed &&
+    !alreadyCheckedIn &&
+    (isBookingOrganiser || participants.some(isSelfParticipant));
+
+  const [checkIn, { loading: checkingIn }] = useMutation<CheckInData, CheckInVars>(
+    CHECK_IN_MUTATION,
+  );
+
+  const handleCheckIn = async () => {
+    if (!booking) return;
+    setCheckInError(null);
+    try {
+      await checkIn({
+        variables: { id: booking.id },
+        // `hasCheckedIn` and `checkIn` are field resolvers, so Apollo's cache
+        // write from the mutation response cannot populate them. The details
+        // query has to come back from the server for the Check-in row to
+        // change and the button to go away.
+        refetchQueries: [
+          { query: BOOKING_DETAILS_QUERY, variables: { id: booking.id } },
+        ],
+        awaitRefetchQueries: true,
+      });
+      setCheckInJustHappened(true);
+    } catch (err) {
+      // Shown verbatim, where the user acted. The window bounds are printed
+      // next to the button but never used to hide it (§9.8), so both messages
+      // FR-39 can produce have to be visible rather than pre-empted client-side.
+      setCheckInError(getGraphQLErrorMessage(err));
+    }
+  };
+
   return (
     <div>
       <PageHeader
@@ -115,7 +170,17 @@ export const BookingDetailsPage = () => {
         }
         topPad="pt-10"
         action={
-          <div className="flex gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
+            {canCheckIn && (
+              <Button
+                variant="primary"
+                icon={<LuCheck aria-hidden />}
+                loading={checkingIn}
+                onClick={() => void handleCheckIn()}
+              >
+                Check In
+              </Button>
+            )}
             {isConfirmed && isOrganiser && (
               <Button
                 variant="primary"
@@ -136,6 +201,19 @@ export const BookingDetailsPage = () => {
           </div>
         }
       />
+
+      {/* Where the user acted: the Check In button is in the header above, so
+          its outcome is reported here rather than inside a card. */}
+      {checkInError && (
+        <p role="alert" className="mb-4 text-sm font-medium text-red-600">
+          {checkInError}
+        </p>
+      )}
+      {checkInJustHappened && !checkInError && booking?.checkIn && (
+        <p role="status" className="mb-4 text-sm font-medium text-navy">
+          Checked in — the room will not be released for a no-show.
+        </p>
+      )}
 
       {error ? (
         <ErrorState
@@ -202,6 +280,16 @@ export const BookingDetailsPage = () => {
                       : 'Not checked in'
                   }
                 />
+                {canCheckIn &&
+                  booking.checkInWindowOpensAt &&
+                  booking.checkInWindowClosesAt && (
+                    <p className="mt-2 text-sm text-muted">
+                      Check-in opens at{' '}
+                      {formatTime(booking.checkInWindowOpensAt)} and closes at{' '}
+                      {formatTime(booking.checkInWindowClosesAt)}. If nobody
+                      checks in, the room is released when that window closes.
+                    </p>
+                  )}
                 <DetailRow
                   label="Series"
                   value={

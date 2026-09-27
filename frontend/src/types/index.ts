@@ -82,6 +82,13 @@ export interface Booking {
   recurrenceId?: string;
   hasCheckedIn?: boolean;
   checkIn?: CheckIn;
+  /**
+   * The check-in window bounds, published by the server so the client never
+   * mirrors `CHECK_IN_WINDOW_MINUTES`. `checkInWindowOpensAt` is the booking's
+   * own `startTime`; the window closes 10 minutes after it.
+   */
+  checkInWindowOpensAt?: string;
+  checkInWindowClosesAt?: string;
   createdAt?: string;
   updatedAt?: string;
   room?: Room;

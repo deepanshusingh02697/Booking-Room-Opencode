@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
-import { LuPlus } from 'react-icons/lu';
+import { LuPlus, LuRefreshCw } from 'react-icons/lu';
 import { BookingRow } from '../../components/common/BookingRow';
 import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -14,6 +14,7 @@ import {
   MY_BOOKINGS_QUERY,
   type MyBookingsData,
 } from '../../graphql/queries/bookings';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { copy, layout } from '../../theme';
 import { BookingStatus, type Booking } from '../../types';
 import { isInProgress } from '../../utils/date';
@@ -31,6 +32,15 @@ export const MyBookingsPage = () => {
   const { data, loading, error, refetch } =
     useQuery<MyBookingsData>(MY_BOOKINGS_QUERY);
   const [showAllPast, setShowAllPast] = useState(false);
+
+  // A CONFIRMED booking is flipped to NO_SHOW or COMPLETED by a node-cron tick
+  // that emits no socket event (Phase 13 shipped no NO_SHOW_RELEASED type), so
+  // this list's status badges go stale on their own. Refetching when the tab
+  // regains focus is the cheap half of staying correct; the Refresh control
+  // below is the explicit one.
+  useRefetchOnFocus(() => {
+    void refetch();
+  });
 
   const bookings = data?.myBookings ?? [];
   // Built from every booking, not just the ones on screen, so a series split
@@ -60,13 +70,23 @@ export const MyBookingsPage = () => {
         sub="Every booking you organise, upcoming and past"
         topPad="pt-10"
         action={
-          <Button
-            variant="primary"
-            icon={<LuPlus aria-hidden />}
-            onClick={() => navigate('/create-booking')}
-          >
-            {copy.dashboardButtons.bookARoom}
-          </Button>
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button
+              variant="outline"
+              icon={<LuRefreshCw aria-hidden />}
+              loading={loading}
+              onClick={() => void refetch()}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="primary"
+              icon={<LuPlus aria-hidden />}
+              onClick={() => navigate('/create-booking')}
+            >
+              {copy.dashboardButtons.bookARoom}
+            </Button>
+          </div>
         }
       />
 

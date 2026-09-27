@@ -134,7 +134,6 @@ export interface RemoveParticipantVars {
     employeeId: number;
   };
 }
-
 export const REMOVE_PARTICIPANT_MUTATION = gql`
   mutation RemoveParticipant($input: RemoveParticipantInput!) {
     removeParticipant(input: $input) {
@@ -146,6 +145,38 @@ export const REMOVE_PARTICIPANT_MUTATION = gql`
       startTime
       endTime
       recurrenceId
+    }
+  }
+`;
+
+export interface CheckInData {
+  checkIn: Booking;
+}
+
+export interface CheckInVars {
+  id: number;
+}
+
+/**
+ * Deliberately lean, for the same reason `addParticipants` is: the two fields
+ * the page actually has to change — `hasCheckedIn` and `checkIn` — are field
+ * resolvers, so a cache write cannot populate them. The details query is
+ * refetched instead, which is also what updates the Check-in row and removes
+ * the button.
+ */
+export const CHECK_IN_MUTATION = gql`
+  mutation CheckIn($id: Int!) {
+    checkIn(id: $id) {
+      id
+      roomId
+      organizerId
+      title
+      status
+      startTime
+      endTime
+      recurrenceId
+      checkInWindowOpensAt
+      checkInWindowClosesAt
     }
   }
 `;

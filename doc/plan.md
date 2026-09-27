@@ -684,16 +684,30 @@ session-start baseline (§9.7 of `project-state.md` records the numbers, the har
 rules).
 
 
-### Phase 19 — Check-in & No-show (Frontend)
+### Phase 19 — Check-in & No-show (Frontend) — ✅ DONE (2026-09-27, uncommitted)
 
-**Backend adjustments (if needed):** none expected — mostly a matter of exposing the check-in window bounds on the booking type if not already present.
+**Backend adjustments (if needed):** the two window bounds on `BookingType`
+(`checkInWindowOpensAt` / `checkInWindowClosesAt`), mapped as plain scalars from the existing
+`checkInWindowEnd` so the frontend states the server's rule instead of repeating the 10 minutes. No migration.
 
 **Frontend tasks:**
-- Check-in button shown only inside the window on Booking Details.
-- Status updates on My Bookings.
+- Check-in button on Booking Details — **shown whenever the booking is `CONFIRMED`, unchecked-in, and the
+  user is the organiser or a listed participant** (FR-38, no admin exemption). *Changed from the original
+  "only inside the window":* the client does not compare the window to its own clock, so it cannot hide the
+  button wrongly; the server's refusal is shown verbatim instead. See project-state §9.8.
+- The window itself is displayed (both bounds) next to the Check-in row, so the rule is stated rather than
+  silently enforced.
+- One click, no confirmation modal. Success and refusal are reported next to the button
+  (`role="status"` / `role="alert"`).
+- Status updates on My Bookings: refetch on window focus plus an explicit Refresh control, because the
+  no-show/completion crons emit no socket event. The lean list fragment is left unchanged — no check-in note
+  on a row.
 
-**Deliverable:** Check-in flow visible end-to-end.
-**Done when:** No check-in within 10 minutes releases the room and the UI reflects the new status.
+**Deliverable:** Check-in flow visible end-to-end. ✅
+**Done when:** No check-in within 10 minutes releases the room and the UI reflects the new status. ✅
+verified live — 26/26 API checks and 44/44 headless-Chrome UI checks (`/private/tmp/p19-api.mjs`,
+`/private/tmp/p19-ui.mjs`); the released booking hid the button and showed its No-show badge. See
+project-state §5 (Phase 19) and §8.37.
 
 ### Phase 20 — Waitlist (Frontend)
 

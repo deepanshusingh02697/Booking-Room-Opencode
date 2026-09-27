@@ -561,6 +561,84 @@ Demo credentials (from seed):
   cadence cards + preview, the series panel, both participant modals, `DatePicker`, `DetailRow` and the
   `BookingConfirmedPanel` composition.
 
+### Phase 19 — Check-in & No-show (Frontend): ✅ BUILT (2026-09-27, uncommitted)
+- **One backend contract addition, and it is the only schema change in the phase.** `BookingType` gained
+  `checkInWindowOpensAt` and `checkInWindowClosesAt`, both non-null, mapped in `toBookingType` as **plain
+  scalars** — `booking.startTime` and `checkInWindowEnd(booking.startTime)`. No field resolver, no extra query,
+  no migration: the window was already computed server-side in `check-in/utils/check-in-window.ts`, this just
+  publishes it. Because they are plain mapped values they cost nothing on a list either, so `myBookings` can
+  select them with the same field-resolver-free guarantee as the rest of the lean row fragment. **The
+  alternative considered and rejected:** field resolvers for the two bounds, which would have re-run
+  `checkInWindowEnd` per row per request and quietly broken the "no field resolvers in a list fragment" rule
+  that §8.19 established for Phase 18's `recurringBookingGroup`.
+- **`frontend/src/types/index.ts` marks both bounds optional** even though the server makes them non-null. The
+  list fragment does not select them, so a `Booking` from `myBookings` genuinely has no such property. Optional
+  is the honest type; the details page guards on them being present.
+- **`CHECK_IN_MUTATION` selects a deliberately lean set** (`id status startTime endTime checkInWindowOpensAt
+  checkInWindowClosesAt`) and pairs with `refetchQueries: [BOOKING_DETAILS_QUERY]` +
+  `awaitRefetchQueries: true`. This is required, not tidiness: `hasCheckedIn` and `checkIn` on `BookingType`
+  are **field resolvers**, so Apollo's cache write from the mutation response cannot populate them. Without the
+  awaited refetch the Check-in row would keep saying "Not checked in" and the button would stay on screen after
+  a successful check-in. The mutation *does* carry the two bounds, so a caller that only needs the new state
+  never has to refetch.
+- **The window is displayed, never used to hide the button** (user decision §9.8). `BookingDetailsPage` shows a
+  one-click **Check In** button in the existing `PageHeader` action group — no confirmation modal — and a plain
+  sentence under the Check-in `DetailRow` giving both server bounds: `Check-in opens at 23:06 and closes at
+  23:16. If nobody checks in, the room is released when that window closes.` The client never compares those to
+  the clock to decide visibility; eligibility is `status === CONFIRMED && !hasCheckedIn && (organiser or
+  listed participant)`, and the server's rejection is what the user sees. Per §9.6 that is deliberate: the page
+  states the rule, the server enforces it, and a client-side timer would only be a second source of truth to
+  drift.
+- **FR-38 is stricter than FR-28 and gets no admin exemption.** The details page already had an `isOrganiser`
+  for the Add People control, but that one includes admins (FR-28) — reusing it would have offered Check In to
+  an admin the server is guaranteed to refuse. So a separate `isBookingOrganiser` (strict) plus a
+  `participants.some(p => p.employeeId === user?.id)` test decides visibility. Verified both ways: a listed
+  participant who is not the organiser **can** check in, and an admin who is neither organiser nor participant
+  gets **no** button even though they can read the booking and see the Check-in row.
+- **`useRefetchOnFocus` (new hook) + a My Bookings Refresh control.** The no-show release and the completion
+  sweep run on a cron and emit no socket event (Phase 13 shipped no `NO_SHOW_RELEASED` type on purpose,
+  §8.17), so a list is stale the moment the server decides something. The hook re-runs the caller's refetch on
+  `window` `focus`, held in a ref so an inline arrow does not re-subscribe each render; it is wired into both
+  `MyBookingsPage` and `BookingDetailsPage`. My Bookings also gets an explicit **Refresh** button next to
+  *Book a Room*. No polling was added (§9.8).
+- **Success and failure are reported where the user acted**, above the cards and next to the button that
+  produced them: `role="status"` with `Checked in — the room will not be released for a no-show.`, and
+  `role="alert"` carrying the GraphQL message **verbatim**. The success line is additionally gated on the
+  refetched `booking.checkIn`, so a fresh mount can never replay a stale flash. The success copy states the
+  consequence rather than restating the action, because `no-show-release` skips any booking that has a
+  `check_ins` row — that is why checking in matters, and the page now says so.
+- **The list fragment was left alone** (user decision §9.8): no check-in fields and no "checked in" note on
+  `BookingRowFields`, so My Bookings picks up the new state through the refetch above. Asserted on the wire in
+  the UI harness, not just by eye.
+- **One verification finding that changes how this feature must be tested:** `no-show-release` is scheduled
+  `* * * * *` (`backend/src/jobs/no-show-release.ts`) — **every minute**. A CONFIRMED booking whose 10-minute
+  window has passed is therefore flipped to `NO_SHOW` within 60 seconds, which means (a) a fixture whose
+  window has closed cannot be used to test the closed-window error, because the button is *correctly* gone by
+  the time a page loads, and (b) in production the `checkIn` "window closed" message is only reachable in the
+  sub-minute gap between the window closing and the sweep. The closed-window path is still real and is covered
+  by the API harness, which calls the mutation directly; the **UI** refusal test uses a booking that starts in
+  the future instead, which no sweep will ever touch. See §8.36.
+- **Verified live: 26/26 API checks** (both bounds on `bookingDetails` for an organiser and for an admin, the
+  bounds on every `myBookings` row, `opensAt === startTime` and `closesAt === startTime + 10min` exactly, the
+  whole `checkIn` matrix — success inside the window, `CONFLICT` on the duplicate, `VALIDATION_ERROR` for a
+  closed window and for a too-early check-in, `FORBIDDEN` for an uninvolved employee **and** for an uninvolved
+  admin, `FORBIDDEN`-vs-`UNAUTHENTICATED` for anonymous, `NOT_FOUND`, and `VALIDATION_ERROR` for a cancelled
+  booking — plus `check_ins` holding exactly one row per success and none for any refusal)
+  **and 44/44 headless-Chrome UI checks** (one-click with no modal, both bounds rendered and matching the API
+  to the minute, the button vanishing and the Check-in row filling in after success, the verbatim
+  too-early refusal in a `role="alert"` with the button kept and the window line kept, the released booking
+  correctly hiding the button and showing a No-show badge, the FR-38 participant/admin split, the Refresh
+  control and focus refetch proven by **counting the GraphQL requests on the wire**, the lean list fragment
+  proven unchanged on the wire, and a 390 px pass with zero console errors). Harnesses:
+  `/private/tmp/p19-api.mjs`, `/private/tmp/p19-ui.mjs` + `p19-ui-seed.mjs` (run the seed first; it prints the
+  IDs **and the pristine baseline** the UI harness must restore).
+- **DB left at its exact session-start baseline** (42 bookings / 72 participants / 1 check-in / 2 waitlist /
+  2 maintenance / 6 rooms / 7 equipment / 10 room_equipment / 6 employees). `npm run typecheck` and
+  `npm run build` pass (both workspaces). There is no lint script in this repo, so typecheck + build is the
+  gate.
+- **Improvised surfaces (§7.2.11), user-authorised (§9.8), not pixel-referenced:** the Check In button's
+  placement in the existing header action group, the one-line window explanation, and the status/alert styling.
+
 - Workspaces, Turbo, shared tsconfig, typed env, error classes/codes, logger
 - Express + cors + cookie-parser; Apollo + TypeGraphQL schema at `/graphql`
 - `/health` endpoint; GraphQL context reads JWT cookie → nullable user
@@ -916,6 +994,12 @@ Demo credentials (from seed):
   booking 7 got `t`, rest `f`).
 - **FYI (dev DB):** seed row `checkedInAt` for booking 7 is still 09:55 (pre-rule) — seed is
   idempotent-skip so the fix (10:02, in-window) only applies to fresh DBs. Harmless.
+- **Later — Phase 19 (frontend) publishes this window.** `BookingType` gained
+  `checkInWindowOpensAt`/`checkInWindowClosesAt`, mapped from the same `checkInWindowEnd` this section's
+  `[startTime, startTime + 10 min)` decision defines, so the frontend states the server's rule instead of
+  repeating the 10 minutes. See the Phase 19 section in §5 and decisions §9.8. Note the schedule: this
+  section's own note that release happens "within ~40s" is because `no-show-release` is `* * * * *`
+  (§8.37).
 
 ### Phase 10 — Waitlist (Backend): ✅ DONE (verified 2026-09-26)
 - **User-approved decisions (asked at kickoff per §9 — see §9 "Decided 2026-09-26 (Phase 10 session)").**
@@ -1787,6 +1871,32 @@ layout (§9 "Next").
     (`P18_FULL`, `P18_IMMINENT`, `P18_CAP`) and the harness refuses to run without them, because booking ids
     from a previous run point at deleted rows. Also `process.exit()` at the end of a CDP run: the socket
     keeps the event loop alive, so a finished run otherwise hangs until the shell times out.
+37. **`no-show-release` runs every minute, so a "window has closed" booking is gone almost immediately
+    (Phase 19).** `backend/src/jobs/no-show-release.ts` is scheduled `* * * * *`. A CONFIRMED booking whose
+    10-minute window has passed is therefore flipped to `NO_SHOW` **within 60 seconds**, and the Check In
+    button is *correctly* gone the moment a page loads. Two consequences to carry forward: (a) a UI test of
+    the closed-window path must **not** use a shifted-back booking — use one starting in the future, which no
+    sweep will ever touch (`p19-ui-seed.mjs` adds `P19_FUTURE` for exactly this); (b) in production the
+    `checkIn` "window closed" message is only reachable in the sub-minute gap between the window closing and
+    the sweep, so the client should never *depend* on it — which is why the UI shows the window rather than
+    hiding the button on a local timer. The API harness is the right place to cover the closed-window rule, by
+    calling the mutation directly.
+38. **Never read a `timestamptz` out of psql as a bare wall clock (Phase 19).**
+    `select start_time at time zone 'UTC'` returns a *naive* timestamp — `2026-09-27 12:00:09.689`, no
+    offset — and `new Date()` then parses that string as **local** time. On this machine (IST, +05:30) that
+    silently shifts the instant by 5 h 30 m, which made a correct page look broken: the UI was printing the
+    correct `23:00` while the harness computed `17:40` from the same value and reported a false failure. Take
+    the instant from the **API**, whose ISO string carries an explicit `Z`, or re-attach the offset in SQL
+    (`at time zone 'UTC' at time zone '+00'`). When a harness compares rendered times, also assert that the
+    browser and the harness share a timezone, so the next mismatch is explained rather than mysterious.
+39. **A count assertion of `>= 1` is only meaningful if the counter can actually see the request
+    (Phase 19).** Three "refetch" checks reported `0 request(s)` and looked like product bugs until the CDP
+    filter was fixed: the harness matched `Network.requestWillBeSent` on `request.url.startsWith(API)`, but
+    the app posts to the Vite dev proxy, so the real URL is `/graphql` on the **frontend** origin. Match
+    `endsWith('/graphql')`. A zero count is also a legitimately failing assertion here (not a vacuous pass),
+    but it distinguishes "the feature is broken" from "the harness is blind" only once you know the counter
+    works — so pair the mechanism check with a positive control (e.g. assert the *initial* page load is
+    counted) before trusting a `0`.
 
 ## 9. Pending Decisions / Next Steps
 
@@ -2100,8 +2210,23 @@ layout (§9 "Next").
       organiser-or-admin rather than on a client-side time calculation (§9.6)
 - [ ] Frontend: an empty value for a mutation arg declared `@ArrayMinSize(1)` is rejected by class-validator
       as **`BAD_USER_INPUT`**, not by the service — never assert the service's error class for it (§8.35)
+- [ ] Frontend: a check-in / no-show surface **shows the server's window bounds rather than hard-coding the
+      10 minutes**, keeps the control visible for a window it cannot trust its own clock against, gates it on
+      `CONFIRMED && !checkedIn && (organiser || listed participant)` with **no admin exemption** (FR-38 is
+      stricter than FR-28 — do not reuse the Add People `isOrganiser`), and shows refusals verbatim (§9.8)
+- [ ] Frontend: after a mutation whose result depends on a **field resolver** (`hasCheckedIn`, `checkIn`),
+      the page **refetches and awaits** the details query — the cache write from the mutation response cannot
+      populate a field-resolver field, so the UI would otherwise show a stale "Not checked in" (§9.8)
+- [ ] Frontend: a page whose data the server can change on its own (the no-show/completion crons emit no
+      socket event) refetches on window focus via `useRefetchOnFocus`, rather than polling (§9.8, §8.17)
 - [ ] Any live-stack verification against the dev DB: clean the previous run's fixtures **first**, make the
       new fixtures unique, and re-read the baseline counts with SQL afterwards (§8.16, §8.36)
+- [ ] Any harness that compares a rendered time against a DB read: take the instant from the **API** (its ISO
+      string carries an explicit `Z`), never from a bare `at time zone 'UTC'` psql projection, and assert the
+      browser and harness share a timezone (§8.38)
+- [ ] Any CDP harness counting network requests: the frontend talks to the **Vite dev proxy**, so match
+      `endsWith('/graphql')` on the *frontend* origin, and confirm the counter sees the initial page load
+      before trusting a `0` (§8.39)
 
 Report a change/decision here when it affects how the app runs (tooling, schema, phases, conventions).
 
@@ -2291,3 +2416,42 @@ running the verification fresh — API, headless-Chrome UI, then the DB baseline
   affordance beyond cancelling it, editing a series' cadence after creation, and any server-side
   recurrence object beyond the `recurrenceId` that already exists. Raise these with the user before
   building them.
+
+### 9.8 Decided 2026-09-27 — Phase 19: Check-in & No-show (frontend)
+
+All six were asked at kickoff and the user took every recommendation. The plan's own Phase 19 checklist
+(`doc/plan.md`) left these open, so they are recorded here rather than inferred.
+
+- **Publish the window on `BookingType` rather than hard-code 10 minutes in the client.** → **Yes — two
+  plain mapped scalars**, `checkInWindowOpensAt` / `checkInWindowClosesAt`, from `checkInWindowEnd`. The 10
+  minutes is a server policy that Phase 9 owns; a second literal in the frontend would be a rule that can
+  drift. Rejected field resolvers for the bounds because they would put per-row work in every list request
+  and break the field-resolver-free list guarantee (§8.19).
+- **When to show the Check In button?** → **Always, for a `CONFIRMED` booking the user organises or is a
+  participant in, that has not been checked in** — the client does **not** compare the window to the clock.
+  Hiding it early or late would be a second, silently-wrong copy of the server's rule, and the user would get
+  a button that does nothing instead of an explanation. The server's message is shown verbatim (§9.6).
+- **Confirm before checking in?** → **No, one click, no modal.** Check-in is idempotent in effect (a second
+  attempt is refused server-side), takes one click, and a confirm dialog for it would be pure friction. The
+  destructive/irreversible actions in this app (`CancelBookingModal`, `RemoveParticipantModal`) still confirm.
+- **Should a booking row show that you checked in?** → **No, leave `BookingRowFields` alone.** The earlier
+  framing of this option ("a `checkIn` note on the row") was *wrong* and was corrected mid-decision: My
+  Bookings selects a deliberately lean fragment, so the row has no check-in data to render and adding the
+  field would grow every list request for a fact the user rarely needs. Status changes are picked up by the
+  refetch below instead.
+- **How does a list learn about a status the server changed on its own?** → **Refetch on window focus, plus
+  an explicit Refresh control on My Bookings.** The no-show release and completion sweep emit no socket event
+  (Phase 13 shipped no `NO_SHOW_RELEASED` type on purpose), so something has to re-read. Polling was
+  considered and **rejected** — it is recurring traffic for a page that is usually open all morning, and
+  focus is exactly when a user looks again. Wired into **My Bookings and Booking Details** (the two pages
+  that show a booking's live state); the dashboard and My Meetings were left alone, as that is the exact
+  scope the user approved.
+- **No design was supplied for Phase 19**, so the surfaces are improvised from the existing primitives under
+  §7.2.11 — the header action group's existing `Button`, `DetailRow`, and plain text. Not pixel-referenced.
+- **Fixture/testing consequence the user did not choose but must know:** because the no-show sweep runs every
+  minute (§8.37), the closed-window error is verified through the **API** harness, and the UI refusal test
+  uses a future booking.
+
+**Not decided / not built here:** a `NO_SHOW_RELEASED` socket event or any push-based status update,
+per-participant check-in (a booking is checked in once, by whoever arrives first), and editing or withdrawing
+a check-in. Raise these with the user before building them.
