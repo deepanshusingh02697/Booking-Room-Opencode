@@ -1,4 +1,8 @@
-import { ConflictError, UnauthenticatedError } from '../../../common/errors';
+import { AuthUser } from '../../../common/context';
+import {
+  ConflictError,
+  UnauthenticatedError,
+} from '../../../common/errors';
 import { Employee, UserRole } from '../entities/employee';
 import { EmployeeRepository } from '../repositories/employee-repository';
 import { hashPassword, verifyPassword } from '../utils/password';
@@ -55,6 +59,14 @@ export class AuthService {
       throw new UnauthenticatedError();
     }
     return employee;
+  }
+
+  async list(user: AuthUser | null): Promise<Employee[]> {
+    if (!user) {
+      throw new UnauthenticatedError();
+    }
+
+    return this.employeeRepository.list();
   }
 
   private async authenticate(email: string, password: string): Promise<Employee> {

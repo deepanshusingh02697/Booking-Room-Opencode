@@ -10,6 +10,7 @@ export interface RoomsVars {
     status?: RoomStatus;
     minCapacity?: number;
     floor?: number;
+    equipmentIds?: number[];
     startTime?: string;
     endTime?: string;
   };
@@ -26,6 +27,10 @@ export const ROOMS_QUERY = gql`
       status
       occupantCount
       remainingCapacity
+      equipment {
+        id
+        name
+      }
     }
   }
 `;
@@ -49,6 +54,10 @@ export const ROOM_DETAILS_QUERY = gql`
       status
       occupantCount
       remainingCapacity
+      equipment {
+        id
+        name
+      }
     }
   }
 `;

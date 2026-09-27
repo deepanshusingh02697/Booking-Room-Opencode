@@ -25,6 +25,12 @@ export class EmployeeRepository {
     return this.repository.find({ where: { id: In(ids) } });
   }
 
+  async list(): Promise<Employee[]> {
+    return this.repository.find({
+      order: { lastName: 'ASC', firstName: 'ASC', id: 'ASC' },
+    });
+  }
+
   async create(data: NewEmployee): Promise<Employee> {
     const employee = this.repository.create(data);
     return this.repository.save(employee);

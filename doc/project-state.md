@@ -3,49 +3,23 @@
 > Persistent AI handoff document. Update this file whenever the project state changes
 > so a new OpenCode session or model can continue development without re-discovering context.
 
-Last updated: 2026-09-27 (**a third UI design session: the user supplied TWO MORE design screenshots — the
-ADMIN dashboard and the EMPLOYEE dashboard — and instructed that the whole app must follow them too. §7.2 is
-now the app-shell/dashboard half of the UI source of truth and is binding on every frontend phase alongside
-§7.1; §9.2 holds the decisions and §8.24 the extraction method.** Still ahead of that: end of Phase 13 backend
-session, plus an earlier UI design-system session that rebuilt the login/signup screen — §7.1 is the other half
-of the UI source of truth. **Phase 13 — Real-time Notifications (backend) is DONE — the BACKEND TRACK
-(Phases 4–13) IS COMPLETE. Next is Phase 14 — Rooms (Frontend), the first frontend phase**)
+Last updated: 2026-09-27 (**Phase 16 — Core Booking (Frontend) is DONE, so the frontend track is 3 of 10
+phases in: 14 Rooms ✅, 15 Equipment ✅, 16 Core Booking ✅. Next is Phase 17 — Manage Bookings &
+Cancellation (Frontend).** Phase 16 needed **one backend addition** (an authenticated `employees` query,
+asked about before coding); everything else reused the proven Phase 6 API, and **no dedicated
+availability query was added** — the user chose to reuse `rooms(filter: { startTime, endTime })`.
+§9.5 records this session's five user decisions.)
 Repo: `Book-MeetingRoom` (branch `main`)
-Working tree at session close: **uncommitted Phase 9 + Phase 10 + Phase 11 + Phase 12 + Phase 13 changes**.
-Phase 13 added the real-time layer: `src/realtime/events.ts` (one socket event per notification type +
-the ISO-string wire payload type), `src/realtime/socket.ts` (Socket.IO server, cookie-handshake auth,
-per-user `user:<id>` rooms, `emitToUser`, `closeSocketServer`), `src/common/cookie-header.ts` (raw
-`Cookie:` header parsing so the handshake and Express share one cookie reader), and rewired
-`common/context.ts` (`userFromCookies` / `userFromCookieHeader` — now the single token→user mapping for
-both transports) + `auth/utils/jwt.ts` (exports `SESSION_COOKIE`, now imported by the auth resolver,
-the context and the socket handshake). `NotificationService` keeps its `[notification:TYPE]`
-`logger.info` line **and** emits the event; `server.ts` creates the HTTP server before
-`initSocketServer(server)` and awaits `closeSocketServer()` in the shutdown path. New
-`backend/scripts/socket-verify.ts` (`npm run socket:verify -w backend`) + `socket.io-client` in
-backend devDependencies. **No migration** (no schema change). Phase 12 built
-`modules/analytics/` from an empty folder skeleton — `dto/date-range-input.ts`,
-`dto/usage-analytics-type.ts` (+`toUsageAnalyticsType`), `repositories/analytics-repository.ts`
-(read-only), `services/analytics-service.ts`, `resolvers/analytics-resolver.ts`, new `index.ts`;
-`schema.ts` (+1 resolver). **No migration** (read-only aggregates over existing columns/indexes).
-Phase 11 layered
-`modules/maintenance/` end to end — `dto/create-maintenance-input.ts`, `dto/maintenance-type.ts`
-(+`toMaintenanceType`), `repositories/maintenance-repository.ts` (tx-aware `create`, `findById`,
-`findForRoom`, `deleteById`), `services/maintenance-service.ts` (SERIALIZABLE + bounded retry, reuses
-`BookingRepository.findConflictingBooking`/`findConflictingMaintenance` inside its own transaction),
-`resolvers/maintenance-resolver.ts` + `maintenance-room-field-resolver.ts`, new `index.ts`;
-`schema.ts` (+2 resolvers). **No migration** (table + `reason` + index + `CHK start < end` all exist
-since Phase 2). Phase 10 added the full
-`modules/waitlist/` layering — `dto/join-waitlist-input.ts`, `dto/waitlist-entry-type.ts`,
-`repositories/waitlist-repository.ts`, `services/waitlist-service.ts`,
-`utils/waitlist-conversion.ts`, `resolvers/waitlist-resolver.ts` +
-`waitlist-entry-room-field-resolver.ts` + `waitlist-entry-employee-field-resolver.ts`, rewritten
-`index.ts`; `waitlist/services/waitlist-conversion-service.ts` went from stub to real FIFO
-conversion (takes an injected `WaitlistBookingCreator`); `bookings/services/booking-service.ts`
-(`cancel` passes `(user, data) => this.create(user, data)` into the hook);
-notifications dto/builders/service (+`WAITLIST_CONVERTED`); `schema.ts` (+3 resolvers).
-Phase 9 (check-in module, both cron jobs, migration `1730000000003`) is still uncommitted too.
-Phases 5–8 were committed before this session (commit `068eb30`).
-The user commits manually (§8.11); if the tree is clean when you read this, Phases 9–12 are committed.
+Working tree at session close: **uncommitted Phase 15 + Phase 16 changes** (Phase 14 is committed as
+`5fe0881`). Phase 16's new/changed files, on top of the Phase 15 set above: backend
+`EmployeeRepository.list` + `AuthService.list` + a new `@Query employees` on `AuthResolver`; frontend
+new `graphql/queries/employees.ts` (`EMPLOYEES_QUERY`), new `graphql/mutations/bookings.ts`
+(`CREATE_BOOKING_MUTATION` + a shared `BookingFields` fragment), new `pages/create-booking/`
+(`CreateBookingPage.tsx` + `ParticipantPicker.tsx`), `Participant` + booking organizer/participants added to
+`types/index.ts`, `defaultSlotInput`/`formatDateTime`/`toLocalInputValue`/`nextHalfHourInput`/
+`addMinutesInput` added to `utils/date.ts`, `/create-booking` wired in `routes/index.tsx` (it was a
+`PlaceholderPage`), a **Book this room** action on `RoomDetailsPage` and the employee dashboard's
+**Book a Room** action. **No migration** (no schema change). The user commits manually (§8.11).
 
 **UI design-system session (2026-09-26, AFTER the Phase 13 work — read this before any frontend phase):**
 the user supplied two design screenshots (login + register) and instructed that **the whole application must
@@ -61,8 +35,8 @@ with the same instruction: the app must follow them. They define the authenticat
 left sidebar, employee centred top nav, `#F5F5F5` page background, black-hairline white cards, stat tiles,
 panel cards, empty states, dashboard buttons) that **every page built in Phases 14–23 sits inside**. Spec:
 **§7.2**; decisions: **§9.2**; extraction method + the "no image vision in this session" caveat: **§8.24**.
-**Nothing was implemented in this session** — it is doc-only, and the §7.2 tokens are **not yet in
-`frontend/tailwind.config.ts`** (adding them is the first mechanical step of Phase 14, §7.2 "Rollout").
+**Both §7.2 sessions are now built and applied** — all 12 tokens are in `frontend/tailwind.config.ts`, the
+two role shells are extracted and re-measured (§5), and the Phase 14 + Phase 15 pages sit inside them.
 
 ---
 
@@ -84,8 +58,9 @@ Source-of-truth doc (note: `doc/`):
 
 Phase structure (restructured 2026-09-25): Phases 1–3 foundation/auth (done), then a
 **backend track** (Phases 4–13, one feature per phase — **CLOSED/DONE as of 2026-09-26**), then a
-**frontend track** (Phases 14–23, same feature order, **starting with Phase 14**), then hardening
-(Phase 24) and docs (Phase 25).
+**frontend track** (Phases 14–23, same feature order — **14 Rooms, 15 Equipment and 16 Core Booking DONE
+as of 2026-09-27, next is Phase 17 Manage Bookings & Cancellation**), then hardening (Phase 24) and
+docs (Phase 25).
 
 ## 2. Repo Layout
 
@@ -107,7 +82,8 @@ Phase structure (restructured 2026-09-25): Phases 1–3 foundation/auth (done), 
 ├── frontend/            React + Vite + Tailwind + Apollo Client
 │   └── src/
 │       ├── components/   auth/ (design-system primitives — §7.1), layout/, forms/, common/
-│       ├── pages/        login/ (real, §7.1) + empty dirs per feature (route table renders PlaceholderPage)
+│       ├── pages/        login/ (§7.1) + real pages per built phase: room-directory/, room-details/,
+│       │                 admin-rooms/ (14) + equipment/ (15); the rest still render PlaceholderPage
 │       ├── context/ hooks/ graphql/ routes/ theme/ types/ utils/ realtime/
 └── (turbo monorepo: root package.json workspaces [backend, frontend])
 ```
@@ -213,7 +189,7 @@ Demo credentials (from seed):
 - **Caveat retained:** the session's model had no image vision, so every number here is pixel-measurement +
   OCR, not visual judgement. Geometry is measured; interpretation is flagged in §7.2/§9.2.
 
-### Phase 14 — Rooms (frontend): ✅ BUILT (2026-09-27, uncommitted)
+### Phase 14 — Rooms (frontend): ✅ BUILT + COMMITTED (2026-09-27, commit `5fe0881`)
 - Built the full Phase 14 frontend on top of the §7.2 shell. **No backend changes were made or needed** —
   the existing `rooms` / `room` queries, `RoomFilterInput` and the create/update/status mutations already
   cover the directory, filters, details and admin management.
@@ -233,21 +209,208 @@ Demo credentials (from seed):
   for these designs rather than improvise, and the user chose to proceed with an improvised catalog. They
   reuse the §7.1/§7.2 primitives and are not pixel-referenced. Revisit if the user later supplies designs.
 - **Equipment filter/display is deliberately NOT in Phase 14** (it is the Phase 15 equipment phase), so
-  `RoomForm` has no equipment fields.
+  `RoomForm` has no equipment fields. → **Superseded in Phase 15**: equipment is now on the directory
+  cards, the admin cards, room details and the filters (but still not inside `RoomForm`; assignment is a
+  separate `EquipmentManager` modal).
 - **Open gap — the two admin dashboard list panels render heading + caption only.** Both
   `Today's Bookings` and `Room Usage` return real data (1 booking; 6 usage rows) but render **no rows**,
   because §7.2.11 excludes list rows from the design and the user instructed that list-row markup not be
   invented. A populated panel therefore looks empty. **This needs the user's row design before it can be
-  finished** — see §9.2.
+  finished** — see §9.2. → **CLOSED in Phase 15**: the user chose to improvise the rows from the existing
+  primitives, which produced the shared `components/common/ListRow.tsx` (see the Phase 15 section).
 
-### Phase 1 — Project Foundation: ✅ DONE
+### Phase 15 — Equipment (Frontend): ✅ BUILT (2026-09-27, uncommitted)
+- **The equipment feature itself needed no backend work, and none was done for it.** The phase's "Backend
+  adjustments" step asked whether the equipment field resolver returns everything the `EquipmentManager` UI
+  needs in one round trip: it does. `equipment` is `@Authorized()` for every employee, and both
+  `assignEquipmentToRoom` / `removeEquipmentFromRoom` return `RoomType`, whose `equipment` field resolver
+  can be selected in the mutation's own selection set — so the whole manager is **1 query + 2 mutations,
+  zero extra round trips**. `rooms(filter: { equipmentIds })` already AND-filters. **The one backend change
+  in this phase is the `filter: null` fix further down, which was a pre-existing bug found by verification
+  and patched only after asking the user.**
+- **New GraphQL layer:** `queries/equipment.ts` (`EQUIPMENT_QUERY`), `mutations/equipment.ts`
+    (`CREATE_EQUIPMENT_MUTATION`, `UPDATE_EQUIPMENT_MUTATION`, `ASSIGN_EQUIPMENT_MUTATION`,
+  `REMOVE_EQUIPMENT_MUTATION` — the last two share a local `fragment RoomWithEquipment on RoomType`),
+ `equipment { id name }` added to both
+  `ROOMS_QUERY` and `ROOM_DETAILS_QUERY`, `equipmentIds?: number[]` added to the `RoomsVars` filter type,
+  and `Equipment` + `Room.equipment` added to `types/index.ts`. The existing `fragment RoomFields` in
+  `mutations/rooms.ts` was left alone on purpose — the per-file field list is the established convention.
+- **`EquipmentManager`** (`pages/admin-rooms/EquipmentManager.tsx`) — a `wide` `Modal` reached from a new
+  **Equipment** button on every Admin Rooms card. Two sections: **Assigned (n)** (one `ListRow` per item
+  with a 40 px outline **Remove**) and **Available (n)** (the unassigned remainder, each with a primary
+  **Add**). It keeps its own `assigned` state, seeded from `room.equipment` and replaced by the mutated
+  room's returned `equipment`, so the panel is correct even before the Apollo cache re-renders the parent.
+  Per-row spinner + disabled buttons while a mutation is in flight; one inline `role="alert"` line for
+  mutation errors; `ErrorState` + retry for the equipment query. Reached from `AdminRoomsPage` via
+  `equipmentRoom` state.
+- **`/equipment` catalog page** (`pages/equipment/EquipmentPage.tsx` + `EquipmentForm.tsx`) — replaces
+  the Phase 15 `PlaceholderPage` on the route the admin nav has always linked to. `PanelCard` of
+  `ListRow`s (name + outline **Edit**) with a **Add Equipment** page-header action; create/rename share
+  one modal that mirrors `RoomForm`'s validation (required after trim, ≤ 100 chars) and surfaces backend
+  CONFLICT messages through `getGraphQLErrorMessage`. **There is still no `deleteEquipment` mutation** —
+  a record can be renamed and unassigned but never deleted, so the page deliberately has no delete action.
+- **Equipment everywhere else:** `components/common/EquipmentChips.tsx` (bordered `rule` chips, `max` +
+  "+N more", muted empty line) is used by the Room Directory `RoomCard` (max 4), the Admin Rooms card
+  (max 4) and a new **Equipment** `PanelCard` (`title="Equipment"`, `sub="Everything assigned to this room"`)
+  on `RoomDetailsPage` — passed to `EquipmentChips` with **no `max`**, so every chip is listed, and
+  `emptyText="No equipment is assigned to this room yet."` when the room has none.
+  `RoomFilters` gained an **Equipment** section: checkbox
+  tiles (`border-navy bg-tint` when selected, `border-hairline` otherwise, §7.1's selection-card tokens)
+  with the caption *"A room must have every item you select."* — matching the backend's AND semantics.
+  **`equipmentIds` is only sent when at least one box is ticked**, because `RoomFilterInput` has
+  `@ArrayMinSize(1)` and an empty array is a VALIDATION error.
+- **The Phase 14 open gap is closed, plus its employee twin:** `components/common/ListRow.tsx` (flex row,
+  `border-b border-rule py-3 last:border-b-0`, optional action slot) now backs **all four** dashboard
+  panels that were rendering heading-only — admin `Today's Bookings` (title + `09:00 – 09:30 · Atlas 2.01`
+  + `StatusBadge`) and `Room Usage` (`1 booked · 0 cancelled · 1 no-show`), employee `Today's Meetings`
+  and `Upcoming Meetings` (same meeting row, extracted as a local `MeetingRow`). New
+  `formatTime`/`formatTimeRange` in `utils/date.ts` render browser-local times, consistent with the
+  "today is the browser's local day" decision in §9.3. `Modal` gained an optional `size="wide"`
+  (`max-w-2xl` + `max-h-[85vh] overflow-y-auto`) for the manager.
+- **Verified live:** **28/28 API checks** against the watch server on :4000 (`rooms(filter: null)` is treated
+  as no filter — the regression test for the fix below; `equipment` shape; equipment on
+  every room incl. `[]` for bare rooms; single- and multi-id filtering with **AND** confirmed — Display →
+  3 rooms, Display+Video Conference → 1; `equipmentIds: []` → VALIDATION; assign → the room immediately
+  appears under that filter and the returned room carries the full list; duplicate assign → CONFLICT;
+  remove → gone, other items survive; no-op remove → NOT_FOUND; create/rename/duplicate-name/whitespace
+  rejections; employee `createEquipment` → FORBIDDEN). Then **headless-Chrome DOM checks** (CDP, system
+  Chrome, session cookie injected — the session's model has no image vision, so this is DOM/text
+  verification, not a visual diff): the manager add/remove round trip (Assigned 3→4→3, then 3→5→3 to force
+  the truncation branch), `+1 more` at 5 items on both cards while room details still lists all 5,
+  `/equipment` 6 rows, the AND filter from the
+  UI, the employee shell's rows, `/equipment` redirecting an employee to `/`, and **0 px horizontal
+  overflow at 390×844 on all five pages**. **No page exceptions.**
+- **DB left at its exact session-start baseline** (6 rooms / 6 equipment / 7 room_equipment / 42 bookings /
+  72 participants / 2 waitlist / 1 check-in, identical room→equipment assignments) — every test row was
+  removed via SQL, including the two `Phase15 verify%` equipment records, because the API has no delete.
+  `npm run typecheck` + `npm run build -w frontend` pass.
+  *(Historical: the equipment side has since drifted to 7 equipment / 10 room_equipment because the user
+  kept using the app — the live baseline is §8.16, re-verified at the Phase 16 close.)*
+- **Found during verification, then FIXED with the user's approval — the only backend change in this phase:**
+  `rooms(filter: null)` used to return `INTERNAL_SERVER_ERROR`. `RoomService.search(user, filter: RoomFilter
+  = {})` relied on a default parameter, which only applies to `undefined`, so an explicit `null` reached
+  `filter.startTime` and threw (`room-service.ts:113`). No frontend path hit it (Apollo omits `undefined`
+  variables), but it was a live trap for any caller that builds the filter conditionally. The fix
+  normalises once at the top — `search(user, filter: RoomFilter | null = {})` then
+  `const criteria = filter ?? {}`, with every field read off `criteria` — and the resolver's arg type was
+  widened to the truth, `RoomFilterInput | null | undefined`, so the next reader is not misled into
+  repeating the mistake. **The Phase 15 API script now asserts it** (`rooms(filter: null)` must return the
+  full room list, not an error): **28/28 checks pass.** A sibling trap from the same phase is *not* a bug and
+  is left as-is: **`equipmentIds: []` is a VALIDATION error**, because `RoomFilterInput` carries
+  `@ArrayMinSize(1)`, so an unselected multi-select must be omitted rather than sent empty. The same
+  default-parameter pattern may exist in other services with defaulted input DTOs — that sweep was
+  deliberately **not** done here (out of the approved scope).
+- **Deviations from §7.2.11, made with explicit user authorisation (§9.4):** the equipment chips, the
+  `ListRow` list markup, the checkbox filter tiles, the `EquipmentManager` layout and the `/equipment`
+  catalog page are all **improvised** on the §7.1/§7.2 primitives and are **not pixel-referenced**.
+  Revisit any of them if the user later supplies designs.
+
+### Phase 16 — Core Booking (Frontend): ✅ BUILT (2026-09-27, uncommitted)
+- **The one backend change, asked about before coding: an `employees` query.** The `ParticipantPicker` had
+  no way to list colleagues — the directory is a plain, non-paginated list
+  (`EmployeeRepository.list()` → `AuthService.list()` → `@Query(() => [EmployeeType]) @Authorized()
+  employees` on `AuthResolver`, mapped through the existing `toEmployeeType` helper, so **no password
+  column is exposed**). It is `UNAUTHENTICATED` when anonymous and readable by both roles; the user chose
+  the whole directory (the admin account included) ordered by `lastName`, `firstName`, `id`, with the
+  **UI** hiding the signed-in user, because the server already rejects the organiser as their own
+  participant (verified: "The organizer is already part of the booking and cannot be added as a
+  participant"). **`AuthResolver` was already registered in `schema.ts`, so no schema wiring was needed.**
+  Note the DB order is Postgres' byte order, so a lowercase surname (`kumar`) sorts after the capitalised
+  ones — that is the seeded data, not a bug.
+- **No availability query was added (user decision, §9.5).** The plan's "Backend adjustments" step
+  suggested a lightweight *is this slot free* query; the user chose to reuse
+  `rooms(filter: { startTime, endTime })`, which already existed. The page therefore runs **two
+  `ROOMS_QUERY` instances**: one unfiltered (the room list to choose from) and one filtered by the chosen
+  range (`skip`ped while the range is unusable), then diffs the ids client-side.
+- **The important subtlety in that diff: `RoomFilterInput`'s time filter excludes overlapping bookings and
+  maintenance windows but does NOT filter on room status.** A `DISABLED` room still comes back from the
+  time-filtered query, so the UI shows it and lets you select it, and the server rejects it with *"Room
+  "Polaris 0.03" is not available for booking (current status: DISABLED)"*. That is deliberate here: it
+  keeps the client's "unavailable" claim honest (it is a *time* answer) and leaves status rejections to the
+  engine. The room card prints the status label instead of a free/unavailable line for non-`AVAILABLE`
+  rooms, so nothing is mislabelled.
+- **`CreateBookingPage` + `ParticipantPicker`** (`pages/create-booking/`) — improvised on the §7.1/§7.2
+  primitives (user decision, §9.5, no design supplied). Room selector as a `role="radiogroup"` of
+  uniform cards with a per-room line (`Free for this slot` / `Unavailable` / `Checking availability…` /
+  the room's own status), the two `DateTimePicker`s side by side, title (≤ 200) + description (≤ 1000),
+  and the participant chips. **Availability is advisory, the server is authoritative:** a selected room that
+  is not free shows a `role="status"` warning naming the room and says submitting "will be rejected by the
+  booking engine", but the button is **not** disabled — so a user can still provoke and see the real
+  CONFLICT message, which is the phase's "done when".
+- **Client-side validation mirrors the server's rules** (required title after trim, start in the future,
+  end after start, a room chosen, attendees ≤ capacity) and gates the button via `disabled`. The
+  `capacity` message is the room's own wording: *"Polaris 0.03 seats 2, but you have 3 attendees."*
+- **A failed availability query no longer lies (fixed during verification).** The first cut only read
+  `availability.data`, so a failed check left `freeRoomIds` empty and marked **every** available room
+  "Unavailable" with no explanation. The page now tracks `availabilityKnown = !loading && !error`, prints
+  `Availability unknown` per card, and shows an inline retry line saying the check failed and the server
+  will still reject a taken room.
+- **`defaultSlotInput()` in `utils/date.ts`** — the default slot is the next half-hour boundary + 60 min.
+  It exists because the first cut called `nextHalfHourInput()` **twice** for start and end; the two calls
+  can straddle a half-hour boundary and silently produce a 30- or 90-minute default. One clock reading now
+  feeds both ends, at init and in `reset()`.
+- **Success stays on the page (user decision, §9.5):** a `Booking Confirmed` panel with the title, a
+  `StatusBadge`, and `Room` / `When` / `Organiser` / `Participants` detail rows, plus **Book another room**
+  (full reset) and **View My Bookings** (points at Phase 17's `PlaceholderPage`, deliberately). This is why
+  the mutation selects a full `BookingFields` fragment — `room`, `organizer` and `participants` are all
+  auth-only fields that must be asked for, and the panel renders them without a second round trip. The
+  fragment includes `employeeId` as well as `employee { … }`, because the `Participant` fallback renders
+  `Employee #<employeeId>` when `employee` is missing.
+- **Recurrence is deliberately absent** (Phase 18), so `CreateBookingInput` gets no `recurrenceId` and the
+  page has no recurrence controls. Verified the created booking comes back with `recurrenceId === null`.
+- **Entry points:** `/create-booking?room=<id>` preselects a room — linked from **Room Details**
+  ("Book this room", primary, shown only for `AVAILABLE` rooms, replacing the old plain `Link` note) — and
+  the **employee dashboard** now uses the previously-unused `copy.dashboardButtons.bookARoom` token for its
+  primary action instead of "Find a Room". Both verified. The route sits inside `ProtectedRoute` only, **not**
+  `AdminRoute`: the nav never links an admin there and the server returns `FORBIDDEN` for an admin
+  `createBooking`, but there is no client-side role redirect.
+- **Icons follow §9.3, not hand-rolled SVG.** The first cut drew `CheckIcon`/`PlusIcon` as inline SVG,
+  which contradicted the `react-icons@5.7.0` decision; they are now `LuCheck`/`LuPlus` from
+  `react-icons/lu`, the same set `theme/navigation.ts` and `Modal` use.
+- **Verified live — API, 44/44:** the `employees` query (anonymous → `UNAUTHENTICATED`; employee + admin
+  get the same ordered directory; shape-only fields; no password; session untouched); the availability
+  filter (free set, adjacency — `end == next start` stays free — and both a maintenance window and a real
+  booking dropping their room out of it); **every** `createBooking` rule (past, inverted range,
+  whitespace title, 201-char title → `BAD_USER_INPUT` from the DTO, `DISABLED`, `MAINTENANCE`, overlap,
+  maintenance overlap, over-capacity, exact fit, duplicate/self/unknown participant, unknown room, admin
+  `FORBIDDEN`, anonymous `UNAUTHENTICATED`); and the **concurrent double-booking guarantee: 3/3 rounds,
+  exactly one winner each, loser got the mapped CONFLICT and never a raw exclusion-constraint error**.
+  Capacity needed a boundary the seeded data cannot reach (6 employees, smallest room 6 seats), so Vega's
+  capacity was temporarily lowered through the admin `updateRoom` mutation and restored afterwards.
+- **Verified live — UI, 86/86 + design contract 17/17** (headless Chrome over CDP with the session cookie
+  injected; the model has no image vision, so these are DOM/geometry assertions, not a visual diff): the
+  60-minute default slot on a future half hour; per-room annotations (`Maintenance`/`Disabled` never read
+  "Free"); the directory hiding the signed-in user while keeping the admin account; search by name and by
+  email plus the empty copy; every validation gate including submit-disabled and the red error border; the
+  attendee counter tracking selections; the client capacity guard (exact fit allowed, one over blocked,
+  with the picker's own remaining-seat warning); a booking created behind the UI's back so the same slot
+  reads "Unavailable" on reload, and submitting anyway surfaces the engine's CONFLICT **verbatim, naming
+  the blocking booking**, with no success panel; the full happy path → `Booking Confirmed` panel (room,
+  `Confirmed` badge, organiser, both participant names, description) and the booking really persisted in
+  `myBookings` with its participants; **Book another room** resetting everything; both entry points; and
+  **0 px horizontal overflow at 390×844** with the room grid collapsing to one column. The design audit
+  confirms §7.1 compliance from computed styles: 44 px controls, 4 px radius, 1 px black border (red when
+  invalid), 16 px input font, the 2 px navy focus ring, no `tabindex="-1"`, and the participant chips at
+  44 px — the chips were 38 px until the audit caught it and they now carry `min-h-11`. **No page
+  exceptions.**
+- **DB left at its exact session-start baseline** (6 rooms / 7 equipment / 10 room_equipment / 42 bookings /
+  72 participants / 1 check-in / 2 waitlist / 2 maintenance / 6 employees, every room's capacity + status
+  restored). Every test row was removed, including the temporary maintenance window and the lowered room
+  capacity. `npm run typecheck` + `npm run build -w frontend` pass.
+- **Improvised surfaces (§7.2.11), user-authorised (§9.5), not pixel-referenced:** the room selector
+  cards, the participant chips, the confirmation panel and the whole form layout. Revisit if the user
+  supplies designs. **Not built here, by decision:** recurrence (Phase 18) and the My Bookings/Booking
+  Details screens the success panel links to (Phase 17).
+
+
 - Workspaces, Turbo, shared tsconfig, typed env, error classes/codes, logger
 - Express + cors + cookie-parser; Apollo + TypeGraphQL schema at `/graphql`
 - `/health` endpoint; GraphQL context reads JWT cookie → nullable user
 - Cron registry (`startJobs`/`stopJobs` with server)
 - Frontend: Vite + Tailwind + Apollo (`credentials: 'include'`), route skeleton + AppLayout/Navbar/Sidebar,
   shared components (Button, Modal, LoadingState, EmptyState, ErrorState, StatusBadge) and form components
-  (Input, Select, DateTimePicker). All routes are `PlaceholderPage`.
+  (Input, Select, DateTimePicker). At this point every route was `PlaceholderPage`; Phases 14–15 have since
+  made `/login`, `/`, `/rooms`, `/rooms/:id`, `/admin/rooms` and `/equipment` real pages.
 
 ### Phase 2 — Database Design: ✅ DONE + validated (commit `7a6d9e4`)
 - DataSource with `synchronize: false`, entities ↔ migration ↔ live DB verified identical
@@ -1023,8 +1186,10 @@ than one real page to keep consistent.
 
 ### 7.2 App Shell & Dashboard Theme — APP-WIDE (binding on every authenticated page)
 
-Extracted 2026-09-27 from the two dashboard screenshots. **Doc-only session: nothing in `frontend/` was
-changed, and the §7.2 colour tokens are not yet in `tailwind.config.ts`** (see "Rollout" at the end).
+Extracted 2026-09-27 from the two dashboard screenshots. **The extraction session itself was doc-only, but
+the §7.2 colour tokens are now in `tailwind.config.ts` and the theme is applied** (Phase 14 built the two
+role shells; Phase 15 finished the four dashboard panels; Phase 16 added the first real *form* screen
+inside them — see "Rollout" at the end and §5).
 
 **Reference images** (Cloudinary is the only copy — re-fetch before re-measuring, do not assume a local file):
 
@@ -1204,9 +1369,19 @@ layout (§9 "Next").
 
 > **Resolved for Phase 14 by user decision (2026-09-27, §9.3):** the user was shown this choice and chose to
 > **improvise** the room-directory / room-details / admin-rooms layouts rather than supply designs, so those
-> three screens are now built on the §7.1/§7.2 primitives without a pixel reference. The exclusion that is
-> **still live** is the *list row*: the admin dashboard's `Today's Bookings` and `Room Usage` panels still have
-> no row markup, so a panel with data renders as heading + caption only. That one still needs a user design.
+> three screens are now built on the §7.1/§7.2 primitives without a pixel reference.
+>
+> **The list-row exclusion is now also closed (2026-09-27, §9.4).** The user authorised improvising list rows
+> in this same vein, which produced the shared `components/common/ListRow.tsx` primitive. Every list built so
+> far uses it: the four dashboard panels (`Today's Bookings`, `Room Usage`, `Today's Meetings`,
+> `Upcoming Meetings`), both `EquipmentManager` sections, and the `/equipment` catalog. A populated panel
+> therefore renders rows, not just a heading. New list screens should use `ListRow` too.
+>
+> **Still improvising without a pixel reference (per §9.4/§9.5, all user-authorised):** the equipment
+> chips, the `RoomFilters` checkbox tiles, the `EquipmentManager` layout and the `/equipment` catalog page
+> (Phase 15), plus the room selector cards, the participant chips, the confirmation panel and the whole
+> Create Booking form layout (Phase 16). No other exclusion in this section is live right now; the next
+> un-designed surface is Phase 17's My Bookings / Booking Details screens.
 
 ## 8. Key Gotchas / Team Memory
 
@@ -1269,11 +1444,23 @@ layout (§9 "Next").
     CONFIRMED booking's times via psql into a slot occupied by ANOTHER CONFIRMED booking in the same
     room fails with 23P01 (good — the constraint even catches test drift). Learned in Phase 9:
     spread SQL-shifted test bookings across rooms, and never swallow psql stderr in test helpers.
-16. **Dev DB baseline (re-verified at the Phase 13 session close, 2026-09-26):** the user keeps using the
-   app, so the numbers drift between sessions — always re-read them with SQL before designing conflict
-   tests. Seed leftovers (room `heaven` id 7, employee `rohan@gmail.com` id 7) are **real data — do not
-   suggest deleting them**. Baseline at Phase 13 close: **42 bookings, 72 participants, 1 check_in,
-   2 waitlist entries, 2 maintenance, 6 rooms** (identical to the Phase 11/12 baseline).
+16. **Dev DB baseline (re-verified at the Phase 16 session close, 2026-09-27):** the user keeps using the
+    app, so the numbers drift between sessions — always re-read them with SQL before designing conflict
+    tests. Seed leftovers (room `heaven` id 7, employee `rohan@gmail.com` id 7) are **real data — do not
+    suggest deleting them**. Baseline at Phase 16 close: **42 bookings, 72 participants, 1 check_in,
+    2 waitlist entries, 2 maintenance, 6 rooms, 7 equipment, 10 room_equipment, 6 employees** — unchanged
+    from the Phase 15 close, and the Phase 16 phase verified against exactly this. Note the
+    `waitlist_entries` table name (§8.3's `waitlist` is the wrong name and errors).
+    **Two seeded-data facts that shape test design here:** (a) only **6 employees** exist, so the smallest
+    room (6 seats) can never be over-booked from the UI — 1 organiser + 5 colleagues = 6 = capacity
+    exactly, so any capacity *boundary* test must temporarily lower a room's capacity through the admin
+    `updateRoom` mutation (and restore it); (b) the smallest room also being `DISABLED` means the
+    over-capacity client guard is unreachable with the data as shipped — it is verified by lowering
+    capacity, not by a data-only test. Temporary rows were removed with raw SQL because the API
+    deliberately has **no `deleteEquipment`** and Phase 16 needed no equipment, only bookings plus one
+    temporary maintenance window (`deleteMaintenance` is admin-only — a cleanup script that runs it with
+    an employee cookie silently fails).
+
 17. **NEVER let two services `new` each other — it stack-overflows at boot, not at call time.**
     Phase 10 first wired `WaitlistConversionService` → `BookingService` while `BookingService` already
     held a `WaitlistConversionService` (the Phase 7 cancel hook). Because every dependency is a
@@ -1340,6 +1527,49 @@ layout (§9 "Next").
       screen *feels*. It gave §7.2 real numbers, not a judgement. Anything it inferred (18 px titles, the
       `text-lg` mapping, the meaning of the tint tile) is flagged as measured-but-inferred in §7.2 and should
       be confirmed against a render.
+25. **A `null` GraphQL argument is NOT the same as an omitted one — a default parameter will not save you
+    (found 2026-09-27 in `RoomService.search`, FIXED the same day with the user's approval).** The signature
+    `search(user, filter: RoomFilter = {})` only got the default for `undefined`. A client that sent
+    `rooms(filter: null)` made TypeGraphQL pass `null` straight through, so `filter.startTime` threw and the
+    whole query returned `INTERNAL_SERVER_ERROR` (`backend/src/modules/rooms/services/room-service.ts:113`).
+    Apollo omits the variable when it is `undefined`, which is why no frontend page ever hit it — but it was
+    a live trap for any caller that builds the filter object conditionally, and it would have surfaced as a
+    mystery 500. **The pattern to reuse whenever a service method defaults an input DTO:** keep the default
+    for the omitted case, normalise the explicit case once, and read every field off the normalised local —
+    `async search(user, filter: RoomFilter | null = {}) { … const criteria = filter ?? {}; … }`. Widening the
+    resolver's arg type to `RoomFilterInput | null | undefined` matters as much: the old `| undefined` was a
+    lie about runtime behaviour, and that lie is what hid the bug. **The same class of bug may exist in the
+    other services that default an input DTO — that sweep was not authorised and was not done** (Phase 15
+    fixed only the one method it had actually broken). A sibling trap from the same phase that is **not** a
+    bug: **`equipmentIds: []` is a VALIDATION error**, not "no filter", because `RoomFilterInput` carries
+    `@ArrayMinSize(1)` — so an unselected multi-select must be omitted, never sent empty.
+26. **`rooms(filter: { startTime, endTime })` answers a TIME question only — it does not filter room status
+    (learned 2026-09-27 in Phase 16).** The time filter drops rooms that overlap a `CONFIRMED` booking or
+    fall in a maintenance window, but a `DISABLED`/`MAINTENANCE`-status room still comes back. So a client
+    that treats "in the filtered result" as "bookable" will offer a room the server will reject
+    (*"Room "Polaris 0.03" is not available for booking (current status: DISABLED)"*). The Phase 16 page
+    keeps the two concerns separate on purpose: the client labels availability by time, shows the room's own
+    status label for non-`AVAILABLE` rooms, and lets the engine reject status. **If a later phase adds a
+    "is this room bookable" helper, it must AND `RoomStatus.AVAILABLE` with the time result.**
+27. **A filtered query that fails must not be rendered as "everything is taken" (Phase 16).** The first cut
+    of `CreateBookingPage` derived `freeRoomIds` only from `availability.data`. On error that is `[]`, so
+    every available room rendered "Unavailable" with no explanation — a **false** answer, which is worse
+    than no answer. The fix is a derived `availabilityKnown = !loading && !error` gate plus an explicit
+    "could not check" message and a retry. **Generalise: whenever a UI derives a negative fact ("not free",
+    "no results", "invalid") from query data, handle the error branch explicitly** — an empty result set and
+    a failed request look identical in `data`.
+28. **Two independent `new Date()` reads can silently produce a wrong default form range (Phase 16).** The
+    default slot was originally `useState(() => nextHalfHourInput())` plus
+    `useState(() => addMinutesInput(nextHalfHourInput(), 60))` — two clock reads that can straddle a
+    half-hour boundary and yield a 30- or 90-minute default. `defaultSlotInput()` now takes **one** reading
+    and derives both ends from it. Same trap applies to any "now + offset" pair of initial state values.
+29. **Computed-style audits catch tap-target and token drift that DOM-text checks cannot (Phase 16).** The
+    participant chips measured 38 px against §7.1's 44 px control contract while every DOM assertion passed;
+    a computed-style sweep (`getBoundingClientRect().height`, `borderTopLeftRadius`, `borderTopColor`,
+    `boxShadow` after a real `Tab` key event) found it and two of my own bad assertions. Note that in
+    headless Chrome **`:focus` styles only flush after a real key event** — a bare `el.focus()` can report
+    `boxShadow: none` even when the ring works, which is §8.22's "the tooling can lie about the design"
+    in a new form. Always assert the focus ring after dispatching a key, not after a programmatic focus.
 
 ## 9. Pending Decisions / Next Steps
 
@@ -1484,6 +1714,34 @@ layout (§9 "Next").
   (`npm run socket:verify -w backend`) and `socket.io-client` was added to **backend devDependencies**
   (previously only a frontend dep) so the backend is self-contained.
 
+**Next — Phase 16 — Core Booking (Frontend). Phases 14 (Rooms) and 15 (Equipment) are DONE:**
+- **First, read §5 Phase 15 and §9.4.** They record what the user authorised in the last session and, more
+  importantly, which surfaces are *improvised rather than pixel-referenced* (the chips, the `RoomFilters`
+  checkbox tiles, the `EquipmentManager` layout, the `/equipment` page, and every `ListRow` list). The
+  booking screens are the next un-designed surface, so expect another "improvise or design?" question.
+- The §7.2 shell is **done and measured** — the tokens are in `tailwind.config.ts`, the two role shells are
+  re-measured, and Phases 14/15 pages sit inside them. Do not redo the rollout; build inside it.
+- **`ListRow` exists** (`components/common/ListRow.tsx`). Reuse it for any new list rather than inventing
+  a second row style.
+- **Backend for booking is already proven** (Phases 6–8): `createBooking` with the optional nested
+  `recurrence` input (returns the **first occurrence**; the series comes from
+  `recurringBookingGroup(recurrenceId)`), `bookingDetails`, `myBookings`, `myMeetings`, the
+  **30-minute** cancellation/change window shared by `cancelBooking` / `addParticipants` /
+  `removeParticipant` (`utils/booking-time-policy.ts`), `bookingTypeOptions(user)` and the
+  `EXC_bookings_room_no_overlap` DB constraint. Treat anything new as `plan.md` §Phase 16's
+  "Backend adjustments" step, not a new module.
+- **Known gaps to carry into Phase 16, both already recorded:** (a) `MyMeetings` returns only *strictly
+  future* bookings, so a meeting that already started today is missing from "Today's Meetings" — a proper
+  fix needs a backend date-range query; (b) the `rooms(filter: null)` 500 is **fixed** (§8.25), but the same
+  default-parameter pattern may exist in the other services that default an input DTO — that sweep was never
+  authorised, so check it if a booking query ever 500s for no visible reason.
+- **Socket client is Phase 23, not 16** — but note the Phase 13 handshake rule: connect only when
+  authenticated, and re-connect on login/logout. Vite already proxies `/socket.io` with `ws: true`.
+- Remember when sending dates: GraphQL `DateTimeISO` requires **full ISO-8601 with seconds**
+  (`2026-09-26T18:00:00+05:30`; `…T18:00+05:30` is rejected) — see §8.12.
+
+<details><summary>Superseded — the Phase 14 "Next" brief as written on 2026-09-27 (kept for history)</summary>
+
 **Next — Phase 14 — Rooms (Frontend), the FIRST frontend phase (backend track closed):**
 - Everything the Rooms UI needs already exists and was verified in Phase 4/5: `rooms(filter)` /
   `room(id)` (`@Authorized()`), `createRoom` / `updateRoom` / `setRoomStatus` (ADMIN),
@@ -1513,6 +1771,8 @@ layout (§9 "Next").
   authenticated, and re-connect on login/logout. Vite already proxies `/socket.io` with `ws: true`.
 - Remember when sending dates: GraphQL `DateTimeISO` requires **full ISO-8601 with seconds**
   (`2026-09-26T18:00:00+05:30`; `…T18:00+05:30` is rejected) — see §8.12.
+
+</details>
 
 ### 9.1 Decided 2026-09-26 — UI design system (user instruction: "the whole application should follow the same design as the images")
 
@@ -1596,8 +1856,18 @@ layout (§9 "Next").
       measurement rather than eyeballing it
 - [ ] Frontend primitives: any new card/stat/panel/empty state comes from §7.2.4–7.2.7, and dashboard
       buttons are 40 px Title Case (not §7.1's 44 px UPPERCASE form button)
-- [ ] Frontend list rows: **do not invent** list/table row markup — §7.2.11 excludes it and the two admin
-      dashboard panels are still waiting on the user's row design (§9.3)
+- [ ] Frontend list rows: **use the improvised `components/common/ListRow.tsx`** (user-authorised 2026-09-27,
+      §9.4) — §7.2.11's exclusion is closed for lists. A new list surface should still improvise on the same
+      primitives (and say so in this file) rather than copy an unrelated page's markup
+- [ ] Frontend: an improvised surface (no user design) is recorded in §5 + §9.4 so the next session knows
+      which screens are not pixel-referenced
+- [ ] Frontend: a **transient** filter input is omitted rather than sent empty (`equipmentIds: []` fails
+      `RoomFilterInput`'s `@ArrayMinSize(1)`) — check this whenever a new optional filter arg is added
+- [ ] Frontend: a UI that derives a **negative** fact from query data ("not free", "no results") handles the
+      error branch explicitly — an errored query returns no `data` and would otherwise render as
+      "everything is taken" (§8.27)
+- [ ] Frontend: **icons come from `react-icons/lu`** (§9.3), not hand-rolled `<svg>`; and paired
+      "now + offset" default form values are derived from **one** clock read (§8.28)
 
 Report a change/decision here when it affects how the app runs (tooling, schema, phases, conventions).
 
@@ -1629,8 +1899,81 @@ chose to do the **full Phase 14** frontend in the same pass, including the room 
     handling, so none was invented.
 - **Equipment filter/display was left out of Phase 14** — it belongs to the Phase 15 equipment phase, so
   `RoomForm` and the filters have no equipment fields.
-- **Open item needing the user:** the row design for the admin dashboard's `Today's Bookings` and
-  `Room Usage` panels. Both fetch real data; neither renders rows. See §7.2.11 and §5.
+- **Open item needing the user: CLOSED in Phase 15** — the row design for the admin dashboard's
+  `Today's Bookings` and `Room Usage` panels. The user authorised improvising rows in Phase 15 (§9.4);
+  `components/common/ListRow.tsx` now backs all four dashboard panels. See §7.2.11 and §5.
+- **Equipment filter/display: DONE in Phase 15** — it is now on the directory cards, the admin cards, room
+  details and `RoomFilters`. (`RoomForm` still has no equipment fields, by design: assignment lives in the
+  separate `EquipmentManager` modal.)
 - **Cosmetic, pre-existing, not from this work:** the app 404s on `/favicon.ico` in the browser console
   because `frontend/index.html` has no favicon link and there is no `frontend/public/` directory. §7.1
   forbids adding image assets without permission, so it was left alone. One line to fix if wanted.
+
+### 9.4 Decided 2026-09-27 — Phase 15 Equipment (frontend), incl. the list-row improvisation
+
+The user authorised Phase 15 and, when asked for the §7.2.11 surfaces it does not decide, answered five
+questions up front:
+
+- **Improvise the list rows** from the existing §7.1/§7.2 primitives rather than pausing for designs.
+  → `components/common/ListRow.tsx`; used by the four dashboard panels, `EquipmentManager` and the
+  `/equipment` catalog. This also closed the last Phase 14 open gap (§9.3) and, by extension, the
+  employee twin of the same problem.
+- **Also build the `/equipment` catalog page** (the route the admin nav has always linked to, previously
+  a `PlaceholderPage`): **create + rename**. **No delete**, because the backend still has no
+  `deleteEquipment` mutation — §7.1/§7.2 forbid inventing UI, and a delete button that errors is worse
+  than none.
+- **Equipment search filter = multi-select checkboxes with AND semantics**, matching
+  `RoomService.search`'s `every()` over `filter.equipmentIds` and the "must have all selected" reading of
+  the filter. Sent **only when ≥ 1 box is ticked**, because `RoomFilterInput.equipmentIds` is
+  `@ArrayMinSize(1)` — an empty array is a VALIDATION error, not "no filter".
+- **Equipment names are chips** (user used the word "chips"), and they must **wrap** rather than truncate
+  or overflow. Cards show the first 4 plus a `+N more` affordance; **room details show all of them**,
+  because a details page that hides equipment defeats the purpose of FR-10. Empty state is a muted
+  "No equipment".
+- **The four dashboard panels** (`Today's Bookings`, `Room Usage`, `Today's Meetings`, `Upcoming
+  Meetings`) all needed rows, not just the two admin ones that were visibly empty — a populated panel
+  rendered as heading + caption is a bug regardless of which panel it is.
+
+Scope/verification notes are recorded in §5 (Phase 15). Two follow-ups, one resolved and one still open:
+
+- **The `rooms(filter: null)` 500 — FIXED after asking.** The session's standing rule is not to touch
+  anything the user has not authorised, so the bug was reported with the fix proposal rather than patched
+  silently; the user chose "fix it now". `RoomService.search` now takes `RoomFilter | null = {}` and
+  normalises with `filter ?? {}`, the resolver arg type was widened to `RoomFilterInput | null |
+  undefined`, and the API script asserts the case (**28/28 pass**). This is the **only** backend change in
+  Phase 15. The wider sweep of other defaulted-input services was offered and declined.
+- **The improvise-not-referenced surfaces**: the chips, the `RoomFilters` checkbox tiles, the
+  `EquipmentManager` layout and the `/equipment` page. If the user supplies designs for any of these
+  later, they are the ones to revisit.
+
+### 9.5 Decided 2026-09-27 — Phase 16 Core Booking (frontend)
+
+The user authorised Phase 16 and, when the plan's open questions were put to them, answered five
+questions up front (the same pattern as §9.3/§9.4 — ask, then build):
+
+- **Add an `employees` query, or leave the ParticipantPicker without a directory?** → **Add it.** It is
+  `@Authorized()` for every signed-in user and returns the whole directory **including the admin
+  account**, ordered by `lastName`, `firstName`, `id`. The **UI**, not the API, is responsible for hiding
+  the signed-in user — the backend already rejects the organiser as their own participant, so hiding is a
+  convenience and keeping the list whole keeps the query reusable.
+- **Add a dedicated "is this slot free" query for live form feedback?** → **No — reuse
+  `rooms(filter: { startTime, endTime })`.** It already encodes the booking + maintenance overlap rules, so
+  a new query would have duplicated the engine. The page runs the unfiltered and the time-filtered query
+  and diffs them. Consequence to remember: that filter is **time-only** (§8.26).
+- **No booking design was supplied.** → **Improvise on the existing §7.1/§7.2 primitives** (room selector
+  cards, participant chips, a confirmation panel). Recorded as not pixel-referenced, like §9.4's surfaces.
+- **Recurrence in this phase?** → **No — Phase 18.** So the mutation sends no `recurrenceId` and the form
+  has no recurrence controls.
+- **Where does the user land after a successful booking?** → **Stay on Create Booking with a confirmation
+  panel**, offering "Book another room" and a "View My Bookings" link. The link is allowed to point at
+  Phase 17's placeholder; the user did not ask to defer the confirmation until My Bookings exists.
+
+Two follow-ups, both now closed and recorded in §5/§8 rather than left open:
+
+- **The failed-availability false negative** (every room read "Unavailable" when the check errored) and
+  the **two-clock-reads default slot** were found during verification and fixed in the same session, plus
+  the participant chips' 38 px tap target (§8.29) and the hand-rolled SVGs, which contradicted §9.3's
+  `react-icons` decision and are now `LuCheck`/`LuPlus`.
+- **The `employees` query is the phase's only backend change**, and it was raised with the user *before*
+  any code was written, per the standing rule. The wider "does any other phase need a directory query?"
+  sweep was not proposed and not done.

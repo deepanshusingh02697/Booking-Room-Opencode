@@ -1,22 +1,40 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
+import { LuPlus } from 'react-icons/lu';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatCard } from '../../components/common/StatCard';
 import { PanelCard } from '../../components/common/PanelCard';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
+import { ListRow } from '../../components/common/ListRow';
 import { LoadingState } from '../../components/common/LoadingState';
+import { StatusBadge } from '../../components/common/StatusBadge';
 import { Button } from '../../components/common/Button';
 import {
   MY_MEETINGS_QUERY,
   type MyMeetingsData,
 } from '../../graphql/queries/bookings';
 import { ROOMS_QUERY, type RoomsData, type RoomsVars } from '../../graphql/queries/rooms';
-import { copy, layout } from '../../theme';
-import { RoomStatus } from '../../types';
-import { isAfterLocalDay, isSameLocalDay, startOfTomorrow } from '../../utils/date';
+import { bookingStatusMeta, copy, layout } from '../../theme';
+import { RoomStatus, type Booking } from '../../types';
+import {
+  formatTimeRange,
+  isAfterLocalDay,
+  isSameLocalDay,
+  startOfTomorrow,
+} from '../../utils/date';
 import { useAuth } from '../../hooks/useAuth';
+
+const MeetingRow = ({ booking }: { booking: Booking }) => (
+  <ListRow action={<StatusBadge meta={bookingStatusMeta[booking.status]} />}>
+    <p className="truncate text-[15px] text-body">{booking.title}</p>
+    <p className="mt-1 text-sm text-muted">
+      {formatTimeRange(booking.startTime, booking.endTime)}
+      {booking.room ? ` · ${booking.room.name}` : ''}
+    </p>
+  </ListRow>
+);
 
 export const EmployeeDashboard = () => {
   const { user } = useAuth();
@@ -81,7 +99,13 @@ export const EmployeeDashboard = () => {
             <LoadingState />
           ) : todaysMeetings.length === 0 ? (
             <EmptyState message={panels.todaysMeetings.empty} />
-          ) : null}
+          ) : (
+            <div className="flex flex-col">
+              {todaysMeetings.map((meeting) => (
+                <MeetingRow key={meeting.id} booking={meeting} />
+              ))}
+            </div>
+          )}
         </PanelCard>
 
         <PanelCard
@@ -89,7 +113,14 @@ export const EmployeeDashboard = () => {
           sub={panels.quickAction.sub}
         >
           <div className="mt-6 flex flex-col items-center gap-3">
-            <Button variant="primary" onClick={() => navigate('/rooms')}>
+            <Button
+              variant="primary"
+              icon={<LuPlus aria-hidden />}
+              onClick={() => navigate('/create-booking')}
+            >
+              {buttons.bookARoom}
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/rooms')}>
               {buttons.findARoom}
             </Button>
             <Button variant="outline" onClick={() => navigate('/bookings')}>
@@ -108,7 +139,13 @@ export const EmployeeDashboard = () => {
             <LoadingState />
           ) : upcomingMeetings.length === 0 ? (
             <EmptyState message={panels.upcomingMeetings.empty} />
-          ) : null}
+          ) : (
+            <div className="flex flex-col">
+              {upcomingMeetings.map((meeting) => (
+                <MeetingRow key={meeting.id} booking={meeting} />
+              ))}
+            </div>
+          )}
         </PanelCard>
       </div>
     </div>

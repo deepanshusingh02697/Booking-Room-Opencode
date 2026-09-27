@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { AppCard } from '../../components/common/AppCard';
 import { Button } from '../../components/common/Button';
+import { EquipmentChips } from '../../components/common/EquipmentChips';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { roomStatusMeta, typeScale } from '../../theme';
 import type { Room } from '../../types';
@@ -33,6 +34,11 @@ export const RoomCard = ({ room }: RoomCardProps) => {
           <dd className="text-body">{room.location}</dd>
         </div>
       </dl>
+
+      <div className="mt-5">
+        <p className="text-sm text-muted">Equipment</p>
+        <EquipmentChips equipment={room.equipment} max={4} className="mt-2" />
+      </div>
 
       <div className="mt-6 flex justify-end">
         <Button variant="outline" onClick={() => navigate(`/rooms/${room.id}`)}>

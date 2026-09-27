@@ -6,10 +6,22 @@ type ModalProps = {
   open: boolean;
   onClose: () => void;
   title?: string;
+  size?: 'default' | 'wide';
   children: ReactNode;
 };
 
-export const Modal = ({ open, onClose, title, children }: ModalProps) => {
+const sizeClasses = {
+  default: 'max-w-md',
+  wide: 'max-w-2xl',
+};
+
+export const Modal = ({
+  open,
+  onClose,
+  title,
+  size = 'default',
+  children,
+}: ModalProps) => {
   if (!open) return null;
 
   return (
@@ -22,7 +34,7 @@ export const Modal = ({ open, onClose, title, children }: ModalProps) => {
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-md rounded border border-black bg-white p-6 shadow-sm"
+        className={`relative max-h-[85vh] w-full ${sizeClasses[size]} overflow-y-auto rounded border border-black bg-white p-6 shadow-sm`}
       >
         <div className="flex items-start justify-between gap-4">
           {title && <h2 className={typeScale.panelTitle}>{title}</h2>}

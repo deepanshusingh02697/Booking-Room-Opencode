@@ -24,7 +24,7 @@ export class RoomResolver {
   @Authorized()
   async rooms(
     @Arg('filter', () => RoomFilterInput, { nullable: true })
-    filter: RoomFilterInput | undefined,
+    filter: RoomFilterInput | null | undefined,
     @Ctx() ctx: AppContext,
   ): Promise<RoomType[]> {
     const rooms = await this.roomService.search(ctx.user, filter);

@@ -1,8 +1,10 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import { PageHeader } from '../../components/common/PageHeader';
 import { AppCard } from '../../components/common/AppCard';
 import { Button } from '../../components/common/Button';
+import { EquipmentChips } from '../../components/common/EquipmentChips';
+import { PanelCard } from '../../components/common/PanelCard';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { ErrorState } from '../../components/common/ErrorState';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -12,6 +14,7 @@ import {
   type RoomDetailsVars,
 } from '../../graphql/queries/rooms';
 import { roomStatusMeta, typeScale } from '../../theme';
+import { RoomStatus } from '../../types';
 
 const DetailRow = ({ label, value }: { label: string; value: string }) => (
   <div className="flex items-baseline justify-between gap-4 border-b border-rule py-3 last:border-b-0">
@@ -36,9 +39,19 @@ export const RoomDetailsPage = () => {
       <PageHeader
         title={room?.name ?? 'Room Details'}
         action={
-          <Button variant="secondary" onClick={() => navigate('/rooms')}>
-            Back to Rooms
-          </Button>
+          <div className="flex gap-3">
+            {room && room.status === RoomStatus.AVAILABLE && (
+              <Button
+                variant="primary"
+                onClick={() => navigate(`/create-booking?room=${room.id}`)}
+              >
+                Book this room
+              </Button>
+            )}
+            <Button variant="secondary" onClick={() => navigate('/rooms')}>
+              Back to Rooms
+            </Button>
+          </div>
         }
       />
 
@@ -87,12 +100,25 @@ export const RoomDetailsPage = () => {
         </div>
       )}
 
+      {room && !loading && !error && (
+        <div className="mt-5">
+          <PanelCard
+            title="Equipment"
+            sub="Everything assigned to this room"
+          >
+            <EquipmentChips
+              equipment={room.equipment}
+              className="mt-2"
+              emptyText="No equipment is assigned to this room yet."
+            />
+          </PanelCard>
+        </div>
+      )}
+
       <p className="mt-6 text-sm text-muted">
-        Looking to book it?{' '}
-        <Link to="/create-booking" className="text-navy underline">
-          Create Booking
-        </Link>{' '}
-        lands in Phase 16.
+        {room && room.status !== RoomStatus.AVAILABLE
+          ? 'This room cannot be booked right now. Browse the catalog for an available room.'
+          : 'Ready to book it? Head to Create Booking with this room already selected.'}
       </p>
     </div>
   );

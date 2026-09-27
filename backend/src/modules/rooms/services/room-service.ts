@@ -107,16 +107,24 @@ export class RoomService {
     return updated;
   }
 
-  async search(user: AuthUser | null, filter: RoomFilter = {}): Promise<Room[]> {
+  async search(
+    user: AuthUser | null,
+    filter: RoomFilter | null = {},
+  ): Promise<Room[]> {
     this.requireAuthenticated(user);
 
-    if (Boolean(filter.startTime) !== Boolean(filter.endTime)) {
+    // A GraphQL arg declared `nullable: true` arrives as an explicit `null` when the
+    // client sends `filter: null`, so the default parameter above only covers
+    // `undefined`. Normalise before touching the fields.
+    const criteria = filter ?? {};
+
+    if (Boolean(criteria.startTime) !== Boolean(criteria.endTime)) {
       throw new ValidationError(
         'Provide both a start time and an end time, or neither.',
       );
     }
 
-    return this.roomRepository.search(filter);
+    return this.roomRepository.search(criteria);
   }
 
   async getById(user: AuthUser | null, id: number): Promise<Room> {

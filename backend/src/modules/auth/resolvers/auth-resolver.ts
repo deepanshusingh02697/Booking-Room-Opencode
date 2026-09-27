@@ -62,6 +62,13 @@ export class AuthResolver {
     return toEmployeeType(employee);
   }
 
+  @Query(() => [EmployeeType])
+  @Authorized()
+  async employees(@Ctx() ctx: AppContext): Promise<EmployeeType[]> {
+    const employees = await this.authService.list(ctx.user);
+    return employees.map(toEmployeeType);
+  }
+
   private createSession(ctx: AppContext, employee: Employee): void {
     const token = signToken({ id: employee.id, role: employee.role });
     ctx.res.cookie(SESSION_COOKIE, token, {

@@ -30,6 +30,11 @@ export interface Employee {
   role: UserRole;
 }
 
+export interface Equipment {
+  id: number;
+  name: string;
+}
+
 export interface Room {
   id: number;
   name: string;
@@ -39,6 +44,14 @@ export interface Room {
   status: RoomStatus;
   occupantCount?: number;
   remainingCapacity?: number;
+  equipment?: Equipment[];
+}
+
+export interface Participant {
+  id: number;
+  bookingId: number;
+  employeeId: number;
+  employee?: Employee;
 }
 
 export interface Booking {
@@ -52,6 +65,8 @@ export interface Booking {
   endTime: string;
   recurrenceId?: string;
   room?: Room;
+  organizer?: Employee;
+  participants?: Participant[];
 }
 
 export interface RoomUsage {

@@ -2,8 +2,10 @@
 
 **Project type:** Full-stack meeting-room booking system
 **Source of truth:** doc/requirement.md
-**Status:** **Phases 1–13 implemented** (the full backend track, verified through the API + a bare
-Socket.io client with no UI). Phases 14–23 (frontend track) follow, in the same feature order: each
+**Status:** **Phases 1–16 implemented** (the full backend track 1–13, verified through the API + a bare
+Socket.io client with no UI, plus the first three frontend phases: 14 Rooms, 15 Equipment and
+16 Core Booking).
+Phases 17–23 (the rest of the frontend track) follow, in the same feature order: each
 opens with a "Backend adjustments" step against the already-proven API rather than starting a new
 module. Hardening (24) and docs/delivery (25) close the project.
 
@@ -312,6 +314,9 @@ frontend/
 │   │   │   ├── AdminRoomsPage.tsx
 │   │   │   ├── RoomForm.tsx
 │   │   │   └── EquipmentManager.tsx
+│   │   ├── equipment/
+│   │   │   ├── EquipmentPage.tsx
+│   │   │   └── EquipmentForm.tsx
 │   │   ├── admin-calendar/
 │   │   │   └── AdminCalendarPage.tsx
 │   │   └── analytics/
@@ -563,6 +568,17 @@ to per-user `user:<id>` rooms; unauthenticated handshakes rejected; verified by
 
 **Deliverable:** Rooms carry equipment end-to-end in the UI.
 **Done when:** You can assign equipment to a room and it appears in search results when filtered by it.
+**Status: DONE (2026-09-27).** The only backend change was a pre-existing bug the verification found and the
+user approved fixing: `rooms(filter: null)` 500'd because `RoomService.search`'s default parameter only
+covers `undefined` (§8.25 of `project-state.md`). Everything else already existed — `equipment`,
+`rooms(filter: { equipmentIds })` and `assignEquipmentToRoom`/`removeEquipmentFromRoom` (which return
+`RoomType`, so `room { equipment { … } }` finishes the round trip) covered what the UI asks for.
+Frontend: `EquipmentManager` modal in Admin Rooms, an `/equipment` catalog page (create + rename — there
+is still no `deleteEquipment` mutation, so a record can be unassigned but never deleted), equipment chips
+on the directory cards / admin cards / room details, an AND multi-select in `RoomFilters`, and the
+improvised `ListRow` primitive that also closed the four dashboard panels which were rendering
+heading-only. Verified live (28/28 API checks + headless-Chrome DOM checks); DB left at its exact
+baseline.
 
 ### Phase 16 — Core Booking (Frontend)
 
@@ -574,6 +590,20 @@ to per-user `user:<id>` rooms; unauthenticated handshakes rejected; verified by
 
 **Deliverable:** The rule engine is usable end-to-end.
 **Done when:** A user can hit every createBooking rule (overlap/past/capacity/maintenance) from the UI and see a clear error, and the concurrent double-booking guarantee still holds underneath.
+**Status: DONE (2026-09-27).** One backend addition, approved before coding: an authenticated
+`employees` query (`EmployeeRepository.list` → `AuthService.list` → `@Query employees`), because the
+ParticipantPicker had no way to list colleagues — the directory is returned whole (including the admin
+account) and ordered by `lastName`, `firstName`, `id`; the UI hides the signed-in user, since the server
+rejects the organiser as their own participant. No "is this slot free" query was added: the user chose to
+reuse `rooms(filter: { startTime, endTime })`, which the form already had available, so the page runs one
+unfiltered query for the room list plus one filtered query for the slot and diffs the two client-side.
+Frontend: `CreateBookingPage` + `ParticipantPicker`, the `?room=<id>` preselection link from Room Details,
+and the employee dashboard's "Book a Room" action. Recurrence is deliberately absent (Phase 18). Success
+stays on the page in a confirmation panel with "Book another room" / "View My Bookings" (the latter points
+at Phase 17's placeholder). Verified live: 44/44 API checks (every `createBooking` rule, the
+`employees` query, and 3/3 concurrent double-booking rounds resolving to exactly one winner) and 86/86
+headless-Chrome UI checks + 17/17 design-token/geometry checks; DB left at its exact baseline (§9.6 of
+`project-state.md`).
 
 ### Phase 17 — Manage Bookings & Cancellation (Frontend)
 

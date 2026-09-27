@@ -4,6 +4,7 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { AppCard } from '../../components/common/AppCard';
 import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
+import { EquipmentChips } from '../../components/common/EquipmentChips';
 import { ErrorState } from '../../components/common/ErrorState';
 import { LoadingState } from '../../components/common/LoadingState';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -17,6 +18,7 @@ import { ROOMS_QUERY, type RoomsData, type RoomsVars } from '../../graphql/queri
 import { roomStatusMeta } from '../../theme';
 import { RoomStatus, type Room } from '../../types';
 import { getGraphQLErrorMessage } from '../../utils/errors';
+import { EquipmentManager } from './EquipmentManager';
 import { RoomForm } from './RoomForm';
 
 const statusOptions = [
@@ -28,6 +30,7 @@ const statusOptions = [
 export const AdminRoomsPage = () => {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Room | null>(null);
+  const [equipmentRoom, setEquipmentRoom] = useState<Room | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const { data, loading, error, refetch } = useQuery<RoomsData, RoomsVars>(
@@ -99,9 +102,14 @@ export const AdminRoomsPage = () => {
                   <p className="mt-1 text-sm text-muted">
                     Capacity {room.capacity} · Floor {room.floor} · {room.location}
                   </p>
+                  <EquipmentChips
+                    equipment={room.equipment}
+                    max={4}
+                    className="mt-3"
+                  />
                 </div>
 
-                <div className="flex items-end gap-3">
+                <div className="flex flex-wrap items-end gap-3">
                   <Select
                     label="Status"
                     name={`status-${room.id}`}
@@ -112,6 +120,12 @@ export const AdminRoomsPage = () => {
                     }
                     disabled={setStatusState.loading}
                   />
+                  <Button
+                    variant="outline"
+                    onClick={() => setEquipmentRoom(room)}
+                  >
+                    Equipment
+                  </Button>
                   <Button variant="outline" onClick={() => openEdit(room)}>
                     Edit
                   </Button>
@@ -127,6 +141,12 @@ export const AdminRoomsPage = () => {
         room={editing}
         onClose={() => setFormOpen(false)}
         onSaved={() => void refetch()}
+      />
+
+      <EquipmentManager
+        open={equipmentRoom !== null}
+        room={equipmentRoom}
+        onClose={() => setEquipmentRoom(null)}
       />
     </div>
   );

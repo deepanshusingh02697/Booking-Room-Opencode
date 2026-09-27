@@ -6,6 +6,8 @@ import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { RoomDirectoryPage } from '../pages/room-directory/RoomDirectoryPage';
 import { RoomDetailsPage } from '../pages/room-details/RoomDetailsPage';
 import { AdminRoomsPage } from '../pages/admin-rooms/AdminRoomsPage';
+import { EquipmentPage } from '../pages/equipment/EquipmentPage';
+import { CreateBookingPage } from '../pages/create-booking/CreateBookingPage';
 import { AdminRoute } from './AdminRoute';
 import { ProtectedRoute } from './ProtectedRoute';
 
@@ -23,9 +25,7 @@ export const AppRoutes = () => {
           <Route path="rooms/:id" element={<RoomDetailsPage />} />
           <Route
             path="create-booking"
-            element={
-              <PlaceholderPage title="Create Booking" phase="Phase 16" />
-            }
+            element={<CreateBookingPage />}
           />
           <Route
             path="bookings"
@@ -59,7 +59,7 @@ export const AppRoutes = () => {
             />
             <Route
               path="equipment"
-              element={<PlaceholderPage title="Equipment" phase="Phase 15" />}
+              element={<EquipmentPage />}
             />
           </Route>
         </Route>
