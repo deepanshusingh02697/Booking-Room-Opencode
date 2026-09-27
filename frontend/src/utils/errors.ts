@@ -15,3 +15,16 @@ export const getGraphQLErrorMessage = (error: unknown): string => {
   }
   return 'Something went wrong. Please try again.';
 };
+
+/**
+ * The backend's `extensions.code` (FORBIDDEN, NOT_FOUND, VALIDATION_ERROR, …),
+ * so a screen can react to *why* a request failed instead of pattern-matching
+ * the message.
+ */
+export const getGraphQLErrorCode = (error: unknown): string | undefined => {
+  if (error instanceof ApolloError) {
+    const code: unknown = error.graphQLErrors[0]?.extensions?.code;
+    return typeof code === 'string' ? code : undefined;
+  }
+  return undefined;
+};

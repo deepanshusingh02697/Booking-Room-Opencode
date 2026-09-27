@@ -22,6 +22,14 @@ export const BookingStatus = {
 
 export type BookingStatus = (typeof BookingStatus)[keyof typeof BookingStatus];
 
+export const RecurrenceFrequency = {
+  DAILY: 'DAILY',
+  WEEKLY: 'WEEKLY',
+} as const;
+
+export type RecurrenceFrequency =
+  (typeof RecurrenceFrequency)[keyof typeof RecurrenceFrequency];
+
 export interface Employee {
   id: number;
   firstName: string;
@@ -54,6 +62,14 @@ export interface Participant {
   employee?: Employee;
 }
 
+export interface CheckIn {
+  id: number;
+  bookingId: number;
+  checkedInBy: number;
+  checkedInAt: string;
+  employee?: Employee;
+}
+
 export interface Booking {
   id: number;
   roomId: number;
@@ -64,6 +80,10 @@ export interface Booking {
   startTime: string;
   endTime: string;
   recurrenceId?: string;
+  hasCheckedIn?: boolean;
+  checkIn?: CheckIn;
+  createdAt?: string;
+  updatedAt?: string;
   room?: Room;
   organizer?: Employee;
   participants?: Participant[];

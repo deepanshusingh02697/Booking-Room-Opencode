@@ -3,23 +3,30 @@
 > Persistent AI handoff document. Update this file whenever the project state changes
 > so a new OpenCode session or model can continue development without re-discovering context.
 
-Last updated: 2026-09-27 (**Phase 16 — Core Booking (Frontend) is DONE, so the frontend track is 3 of 10
-phases in: 14 Rooms ✅, 15 Equipment ✅, 16 Core Booking ✅. Next is Phase 17 — Manage Bookings &
-Cancellation (Frontend).** Phase 16 needed **one backend addition** (an authenticated `employees` query,
-asked about before coding); everything else reused the proven Phase 6 API, and **no dedicated
-availability query was added** — the user chose to reuse `rooms(filter: { startTime, endTime })`.
-§9.5 records this session's five user decisions.)
+Last updated: 2026-09-27 (**Phase 18 — Recurring Meetings (Frontend) is DONE, so the frontend
+track is 5 of 10 phases in: 14 Rooms ✅, 15 Equipment ✅, 16 Core Booking ✅, 17 Manage Bookings &
+Cancellation ✅, 18 Recurring Meetings ✅. Next is Phase 19 — Check-in & No-show (Frontend).**
+Phase 18 needed **one small backend change** — human `en-GB`/UTC wording for the booking-conflict and
+maintenance messages, in a new `bookings/utils/conflict-message-time.ts`; `recurringBookingGroup`
+itself needed no contract change and the plan's "no N+1" check confirmed it stays lean. New frontend
+surface: the recurrence section on Create Booking, the recurring-series panel on Booking Details, the
+add/remove-participant modals the user pulled into this phase, and recurring notes on booking rows.
+Verified live: **64/64 API checks and 52/52 headless-Chrome UI checks**, DB left at its exact
+baseline, `typecheck` + `build` green. §9.7 records this session's decisions and the fixture rules.)
 Repo: `Book-MeetingRoom` (branch `main`)
-Working tree at session close: **uncommitted Phase 15 + Phase 16 changes** (Phase 14 is committed as
-`5fe0881`). Phase 16's new/changed files, on top of the Phase 15 set above: backend
-`EmployeeRepository.list` + `AuthService.list` + a new `@Query employees` on `AuthResolver`; frontend
-new `graphql/queries/employees.ts` (`EMPLOYEES_QUERY`), new `graphql/mutations/bookings.ts`
-(`CREATE_BOOKING_MUTATION` + a shared `BookingFields` fragment), new `pages/create-booking/`
-(`CreateBookingPage.tsx` + `ParticipantPicker.tsx`), `Participant` + booking organizer/participants added to
-`types/index.ts`, `defaultSlotInput`/`formatDateTime`/`toLocalInputValue`/`nextHalfHourInput`/
-`addMinutesInput` added to `utils/date.ts`, `/create-booking` wired in `routes/index.tsx` (it was a
-`PlaceholderPage`), a **Book this room** action on `RoomDetailsPage` and the employee dashboard's
-**Book a Room** action. **No migration** (no schema change). The user commits manually (§8.11).
+Working tree at session close: **uncommitted Phase 15 + Phase 16 + Phase 17 + Phase 18 changes**
+(Phase 14 is committed as `5fe0881`). Phase 18's new/changed files, on top of the earlier sets:
+backend new `modules/bookings/utils/conflict-message-time.ts` + `booking-service.ts` (message text
+only — **no migration, no schema change**); frontend new `utils/recurrence.ts` (client mirror of the
+server's generator), new `components/forms/DatePicker.tsx` and `components/common/DetailRow.tsx`,
+new `pages/create-booking/RecurrenceSection.tsx` and `BookingConfirmedPanel.tsx`, new
+`pages/booking-details/RecurringSeriesPanel.tsx` + `AddParticipantsModal.tsx` +
+`RemoveParticipantModal.tsx`, `recurrence`/`recurrenceId` on `Booking` plus
+`RecurrenceFrequency`/`RecurringBookingGroup` types, the `ADD_PARTICIPANTS_MUTATION` /
+`REMOVE_PARTICIPANT_MUTATION` / `RECURRING_BOOKING_GROUP_QUERY` documents, `ParticipantPicker`'s
+`excludeIds` prop, and the recurring note in `MyBookingsPage` / `MyMeetingsPage` /
+`EmployeeDashboard` (both meeting panels). The user commits manually (§8.11); the verification
+harnesses live in `/private/tmp/p18-*.mjs` (nothing test-related is committed, §8.7).
 
 **UI design-system session (2026-09-26, AFTER the Phase 13 work — read this before any frontend phase):**
 the user supplied two design screenshots (login + register) and instructed that **the whole application must
@@ -58,9 +65,9 @@ Source-of-truth doc (note: `doc/`):
 
 Phase structure (restructured 2026-09-25): Phases 1–3 foundation/auth (done), then a
 **backend track** (Phases 4–13, one feature per phase — **CLOSED/DONE as of 2026-09-26**), then a
-**frontend track** (Phases 14–23, same feature order — **14 Rooms, 15 Equipment and 16 Core Booking DONE
-as of 2026-09-27, next is Phase 17 Manage Bookings & Cancellation**), then hardening (Phase 24) and
-docs (Phase 25).
+**frontend track** (Phases 14–23, same feature order — **14 Rooms, 15 Equipment, 16 Core Booking,
+17 Manage Bookings & Cancellation and 18 Recurring Meetings DONE as of 2026-09-27, next is Phase 19
+Check-in & No-show**), then hardening (Phase 24) and docs (Phase 25).
 
 ## 2. Repo Layout
 
@@ -83,7 +90,8 @@ docs (Phase 25).
 │   └── src/
 │       ├── components/   auth/ (design-system primitives — §7.1), layout/, forms/, common/
 │       ├── pages/        login/ (§7.1) + real pages per built phase: room-directory/, room-details/,
-│       │                 admin-rooms/ (14) + equipment/ (15); the rest still render PlaceholderPage
+│       │                 admin-rooms/ (14) + equipment/ (15) + create-booking/, my-bookings/,
+│       │                 my-meetings/, booking-details/ (16–18); the rest still render PlaceholderPage
 │       ├── context/ hooks/ graphql/ routes/ theme/ types/ utils/ realtime/
 └── (turbo monorepo: root package.json workspaces [backend, frontend])
 ```
@@ -351,8 +359,8 @@ Demo credentials (from seed):
   feeds both ends, at init and in `reset()`.
 - **Success stays on the page (user decision, §9.5):** a `Booking Confirmed` panel with the title, a
   `StatusBadge`, and `Room` / `When` / `Organiser` / `Participants` detail rows, plus **Book another room**
-  (full reset) and **View My Bookings** (points at Phase 17's `PlaceholderPage`, deliberately). This is why
-  the mutation selects a full `BookingFields` fragment — `room`, `organizer` and `participants` are all
+  (full reset) and **View My Bookings** (written against Phase 17's `PlaceholderPage`, so it was a dead
+  link until Phase 17 shipped). This is why the mutation selects a full `BookingFields` fragment — `room`, `organizer` and `participants` are all
   auth-only fields that must be asked for, and the panel renders them without a second round trip. The
   fragment includes `employeeId` as well as `employee { … }`, because the `Participant` fallback renders
   `Employee #<employeeId>` when `employee` is missing.
@@ -399,9 +407,159 @@ Demo credentials (from seed):
   capacity. `npm run typecheck` + `npm run build -w frontend` pass.
 - **Improvised surfaces (§7.2.11), user-authorised (§9.5), not pixel-referenced:** the room selector
   cards, the participant chips, the confirmation panel and the whole form layout. Revisit if the user
-  supplies designs. **Not built here, by decision:** recurrence (Phase 18) and the My Bookings/Booking
-  Details screens the success panel links to (Phase 17).
+  supplies designs. **Not built here, by decision:** recurrence (Phase 18). The My Bookings / Booking
+  Details screens this panel links to were built in Phase 17, so "View My Bookings" now lands on a real
+  page.
 
+
+### Phase 17 — Manage Bookings & Cancellation (Frontend): ✅ BUILT (2026-09-27, uncommitted)
+- **Zero backend changes**, confirmed against the code before writing any frontend: Phase 7 already exposes
+  `myBookings` (every booking the caller organises, `startTime DESC`), `myMeetings` (CONFIRMED-only future
+  bookings where the caller organises **or** is a participant, `startTime ASC`), `bookingDetails(id)`
+  (organiser, any participant, or an admin; otherwise `FORBIDDEN`, and `NOT_FOUND` for an unknown id) and
+  `cancelBooking(id)` (organiser or admin, `CONFIRMED` only, refused at/after 30 minutes before the start).
+  **No migration.** The only GraphQL work was the *selection sets*: the plan's "verify the existing types
+  carry what the UI needs" step.
+- **`bookingDetails` was missing four things the details page has to show, and all four exist on
+  `BookingType` already:** `hasCheckedIn`, `checkIn { checkedInBy, checkedInAt, employee { firstName,
+  lastName } }`, `createdAt` and `updatedAt`. `checkIn` comes from Phase 9's `CheckInType` and its
+  `employee` relation is auth-only, so it must be asked for explicitly; `hasCheckedIn` and the
+  timestamps are scalars that a details page simply had never selected. No server change, no N+1 (verified:
+  booking 7's check-in resolves in the same round trip).
+- **`BookingRow` is the phase's one new shared primitive** (`components/common/BookingRow.tsx`), improvised
+  on §7.1/§7.2 like §9.4's `ListRow` (§7.2.11 does not cover list rows). It wraps `ListRow`, makes the
+  **whole row** the link to `/bookings/:id` (an `after:inset-0` overlay on a `relative` row), shows the
+  booking's `StatusBadge`, and takes two optional props: `showDate` (adds the calendar date to the second
+  line) and `note` (extra context such as `In progress`, `Organiser`, `Invited`). It is now used by
+  **My Bookings, My Meetings and both employee-dashboard meeting panels**, so every booking row in the app
+  links to its details page. **Consequence to remember (§8.30): the action slot is inside the link's overlay,
+  so it is not independently clickable — keep it a non-interactive badge.**
+- **`MyBookingsPage`** — two `PanelCard`s, as decided (§9.6): **Upcoming** (not finished yet, soonest first)
+  and **Past** (most recent first, capped at 10 rows with `Show all (N)` / `Show less`). Both panels render
+  `EmptyState` when empty, and the whole page reads `myBookings` once and splits it client-side, with **one**
+  `new Date()` per render so the two lists cannot disagree (§8.28's family). `isInProgress` +
+  `isFuture` + `minutesUntil` were added to `utils/date.ts` for this.
+- **A booking the engine already gave up on must never read "In progress" (found in verification).** The
+  10-minute no-show release flips a booking to `NO_SHOW` while it is still in the future, so the first
+  version showed a `NO_SHOW` row inside **Upcoming** with the note `In progress` — a meeting that is
+  definitively not happening, described as though it were. The note is now gated on
+  `status === CONFIRMED`. The *placement* is still purely time-based (a not-yet-ended `NO_SHOW` booking
+  stays in Upcoming for those 10 minutes), which matches the panel copy "Your bookings that have not
+  finished yet" — see §8.31.
+- **`BookingDetailsPage`** — `PageHeader` (`pt-10`, §7.2) with the Cancel action and a Back button, then
+  three `AppCard`s: **Booking** (status badge, a status note explaining what the engine already did, and
+  `When` / `Room` (linking to `/rooms/:id`) / `Organiser` / `Check-in` / `Series` / `Booked on` rows, plus
+  the description), **Room** (status badge, name/capacity/floor/location, "View Room Details"), and
+  **Participants**. The room value is a `<Link>`, so `DetailRow.value` is typed `ReactNode`, not `string`.
+  Missing relations degrade instead of crashing: `Employee #<id>` when `employee`/`organizer` is absent,
+  `Room #<id>` when the room is gone, `—` when `createdAt` is missing. `FORBIDDEN` gets a bespoke "You are
+  not part of this booking" state (via the new `getGraphQLErrorCode`), an unknown id gets "That booking link
+  is not valid", and any other failure is a retryable `ErrorState`.
+- **`CancelBookingModal` — the server is the authority, on purpose (§9.6).** It lists who may cancel
+  (organiser or admin), that the window closes 30 minutes before the start, that a recurring occurrence
+  cancels alone, and that a queued waitlist entry is offered the slot automatically. It **never disables the
+  confirm button on client-side time maths**, and it renders the server's message verbatim, so the two
+  authoritative rejections are visible where the user acted: *"Bookings can only be cancelled until 30
+  minutes before they start."* and *"You are not allowed to perform this action."* The copy deliberately
+  does **not** claim participants are notified — cancellation notifications were never built (Phase 7
+  emits none), so promising them would be a lie.
+- **The cancel result is a normalised `BookingFields` payload**, so the cache update alone re-renders the
+  details page (badge, status note, and the Cancel action disappearing) and My Bookings. `myMeetings` is
+  CONFIRMED-only, so the mutation also carries `refetchQueries: [{ query: MY_MEETINGS_QUERY }]` — a cache
+  write cannot remove a row from a query that filters it out server-side.
+- **`MyMeetingsPage`** (`/meetings`, built in this phase per §9.6) lists the caller's confirmed future
+  meetings with `Organiser` / `Invited` as the row note, reusing `BookingRow`; the employee dashboard's two
+  meeting panels use the same component with `showDate` left off, which keeps the exact time-only line
+  they were measured with in §5 while making the rows link.
+- **Routes:** `/bookings`, `/bookings/:id` and `/meetings` were `PlaceholderPage`s and are now the real
+  pages, all inside `ProtectedRoute` only (**not** `AdminRoute` — an admin may legitimately open any
+  booking, §7's own role matrix). Phase 16's success panel link now lands on a real My Bookings page.
+- **Verified live — API, 41/41** (`/private/tmp/p17-api.mjs`): anonymous `UNAUTHENTICATED` on all four
+  operations; `myBookings` returns only the caller's own bookings, `startTime DESC`, every row with its
+  room; `myMeetings` is CONFIRMED-only, strictly future, `ASC`; the whole `bookingDetails` access matrix
+  (organiser ✓, participant ✓, uninvolved `FORBIDDEN` ✓, admin on anyone's ✓, unknown id `NOT_FOUND` ✓,
+  `checkIn { employee { … } }` resolving on booking 7, `hasCheckedIn` a boolean, `checkIn` null when
+  nobody checked in); and every `cancelBooking` rule — inside the 30-minute window → `VALIDATION_ERROR`
+  with the exact message, a real cancel → `CANCELLED` + the full graph, twice → `VALIDATION_ERROR`
+  ("Only confirmed bookings can be modified."), an uninvolved employee and a mere participant → both
+  `FORBIDDEN`, an admin cancelling someone else's booking ✓, unknown id `NOT_FOUND` — **plus the waitlist
+  chain the modal's copy promises: a colleague queued for the cancelled slot was auto-converted into a
+  booking and their entry left `myWaitlist`.**
+- **Verified live — UI, 52/52 + 6/6** (headless Chrome over CDP; DOM/geometry assertions, not a visual diff
+  — the model has no image vision): the two panels and their sub-copy; `In progress` on a running booking
+  and **not** on a `NO_SHOW` one; a same-day row showing a time range and a five-days-out row showing a
+  date; the Past cap at 10 with `Show all (13)` revealing all 13 and then `Show less`; Cancelled and
+  No-show badges in Past; **every** booking row on all three screens linking to `/bookings/:id`; Upcoming
+  sorted ascending; the details page's room/organiser/participants/series/check-in/"Booked on" rows with
+  **no** participant controls (Phase 18+) and no `tabindex="-1"`; the modal's four guidance lines; the
+  30-minute rejection shown **verbatim** with the modal staying open and no navigation; a participant's
+  cancel attempt surfacing `FORBIDDEN`; a real cancel flipping the badge to `Cancelled`, removing the
+  Cancel action, adding the status note, keeping the row in My Bookings **and** dropping it from My
+  Meetings; the employee dashboard's today-panel rows linking to details; and a `COMPLETED` booking
+  (booking 7) showing `Priya Verma at Thu 24 Sept · 09:55` as read-only with no Cancel action and the
+  "already finished" note. **No page exceptions, no console errors.**
+- **Test data note for anyone re-running this:** `createBooking` refuses a start time in the past, so
+  past-capped and in-progress fixtures were inserted straight into `bookings` and deleted afterwards. The
+  live release cron flips any CONFIRMED booking to `NO_SHOW` **10 minutes after it _starts_** (§8.31), so an
+  "in progress" fixture has a ~10-minute lifetime.
+- **DB left at its exact session-start baseline** (42 bookings / 72 participants / 2 waitlist / 1 check-in /
+  6 rooms / 6 employees, waitlist entries 1 and 28 intact). All 14 temporary rows and their participants
+  were removed. `npm run typecheck` + `npm run build -w frontend` pass.
+- **Improvised surfaces (§7.2.11), user-authorised (§9.6), not pixel-referenced:** `BookingRow`'s row
+  layout, the details page's three-card composition, the cancel modal's bullet list and the My Bookings /
+  My Meetings panel pairs. Revisit if the user supplies designs. **Not built here, by decision:** recurrence
+  and participant add/remove (**both built in Phase 18**), the check-in button (Phase 19 — the details page
+  shows check-in **read-only**), and the waitlist indicator (Phase 20).
+
+### Phase 18 — Recurring Meetings (Frontend): ✅ BUILT (2026-09-27)
+- **Backend: no contract change, one message-text change.** The plan's "verify `recurringBookingGroup` needs
+  no N+1" check passed — it selects `BookingType` scalars only, so no per-occurrence field resolvers. What the
+  phase *did* need was human wording: `bookings/utils/conflict-message-time.ts` (`formatConflictTime`,
+  `formatConflictWindow`, `en-GB` + `timeZone: 'UTC'`) renders the conflict and maintenance messages with
+  explicit UTC instead of raw ISO, e.g. `Room "Vega 3.02" is already booked for the occurrence at Mon, 1 Feb
+  2027, 09:00 UTC (conflicts with "…", Mon, 1 Feb 2027, 09:00 UTC to Mon, 1 Feb 2027, 09:30 UTC).` The raw-ISO
+  messages in check-in/waitlist/maintenance were deliberately left alone (not booking conflicts). **No
+  migration.**
+- **`utils/recurrence.ts` is a step-for-step client mirror of the server generator** — `previewOccurrences`,
+  `repeatUntilToGraphQLDate`, `frequencyLabel`/`frequencyAdverb`, `buildRecurrenceNotes`, `bookingRowNote`, plus
+  the same 90-occurrence cap and the same inclusive end-of-day rule. It exists so the form can block an invalid
+  series *before* submitting and label the button `Create N Bookings`, and so the row notes stay consistent.
+  **When the server's generator changes, this file must change with it** (gotcha §8.34).
+- **Create Booking:** `RecurrenceSection` (repeat toggle, Every day / Every week cards, inclusive "Repeat
+  until" `DatePicker`, live 5-row preview with a 90-occurrence hint) and the new `BookingConfirmedPanel`, which
+  re-reads the authoritative series after creation instead of trusting a client count. `recurrence` is
+  submitted **only** when repeat is on (§8.25).
+- **Booking Details:** `RecurringSeriesPanel` — the occurrence count feeds the Series `DetailRow`, the list is
+  capped at 10 with Show all / Show less, every occurrence links to its own details page, and the panel states
+  that occurrences are cancelled **one at a time** (there is deliberately no whole-series cancel). Plus the
+  participant work the user pulled into this phase: `AddParticipantsModal` (reuses Create Booking's
+  `ParticipantPicker` through a new `excludeIds` prop, one batch mutation, "n seats are left" in the subtitle,
+  verbatim server errors) and `RemoveParticipantModal` (confirm, with "Leave this meeting" for a participant
+  removing themself) — both behind one **Add People** control that only the organiser or an admin sees. Per
+  §9.6 no client-side 30-minute maths gates them; the modal states the rule and the server's rejection is
+  shown where the user acted.
+- **Recurring row notes:** `Repeats every week` (or `…every day`) as a subtle second-line note on My Bookings,
+  My Meetings and both employee-dashboard panels, inferred from the gaps between the occurrences on screen —
+  never from a stored pattern, so a series edited occurrence-by-occurrence stays honest.
+- **One verification finding worth keeping:** an empty `employeeIds` never reaches the service —
+  `@ArrayMinSize(1)` on `AddParticipantsInput` answers first, as **`BAD_USER_INPUT`** rather than
+  `VALIDATION_ERROR` (§8.35). The modals show whatever code comes back, so nothing needed changing, but an
+  API harness must not assert the service's error class for that case.
+- **Verified live: 64/64 API checks** (inclusive end date, the exact 90/91 cap boundary, both conflict and
+  maintenance message shapes, half-open back-to-back still allowed, the full `addParticipants` /
+  `removeParticipant` permission + capacity + 30-minute + cancelled-booking matrix, `recurringBookingGroup`
+  authorisation for a participant / an admin / an unrelated user) **and 52/52 headless-Chrome UI checks**
+  (recurrence section preview + cap block + submit label, the confirmation panel, the notes on all four lists,
+  the series panel and its Show all / no-whole-series-cancel rules, add/remove as organiser, participant
+  self-removal including the 30-minute rejection shown verbatim, the "this booking is already full" copy, and a
+  390 px pass with zero console errors). Harnesses: `/private/tmp/p18-api.mjs`, `/private/tmp/p18-ui.mjs` +
+  `p18-ui-seed.mjs` / `p18-ui-cleanup.mjs` (run the seed first; it prints the IDs the UI harness expects).
+- **DB left at its exact session-start baseline** (42 bookings / 72 participants / 2 waitlist / 1 check-in /
+  6 rooms / 7 equipment / 10 room_equipment / 6 employees / 2 maintenance; waitlist entries 1 and 28 intact, max
+  booking id 280). `npm run typecheck` and `npm run build` (both workspaces, `--force`) pass.
+- **Improvised surfaces (§7.2.11), user-authorised (§9.7), not pixel-referenced:** the recurrence section's
+  cadence cards + preview, the series panel, both participant modals, `DatePicker`, `DetailRow` and the
+  `BookingConfirmedPanel` composition.
 
 - Workspaces, Turbo, shared tsconfig, typed env, error classes/codes, logger
 - Express + cors + cookie-parser; Apollo + TypeGraphQL schema at `/graphql`
@@ -1377,11 +1535,14 @@ layout (§9 "Next").
 > `Upcoming Meetings`), both `EquipmentManager` sections, and the `/equipment` catalog. A populated panel
 > therefore renders rows, not just a heading. New list screens should use `ListRow` too.
 >
-> **Still improvising without a pixel reference (per §9.4/§9.5, all user-authorised):** the equipment
+> **Still improvising without a pixel reference (per §9.4/§9.5/§9.6/§9.7, all user-authorised):** the equipment
 > chips, the `RoomFilters` checkbox tiles, the `EquipmentManager` layout and the `/equipment` catalog page
 > (Phase 15), plus the room selector cards, the participant chips, the confirmation panel and the whole
-> Create Booking form layout (Phase 16). No other exclusion in this section is live right now; the next
-> un-designed surface is Phase 17's My Bookings / Booking Details screens.
+> Create Booking form layout (Phase 16), plus `BookingRow`, the details page's three-card composition, the
+> cancel modal's bullet list and the My Bookings / My Meetings panel pairs (Phase 17), plus the recurrence
+> section's cadence cards and live preview, `DatePicker`, `DetailRow`, the series panel, both participant
+> modals and the confirmation panel's series list (Phase 18). No other exclusion in this section is live
+> right now; the next un-designed surface is Phase 19's check-in button on the details page.
 
 ## 8. Key Gotchas / Team Memory
 
@@ -1444,20 +1605,25 @@ layout (§9 "Next").
     CONFIRMED booking's times via psql into a slot occupied by ANOTHER CONFIRMED booking in the same
     room fails with 23P01 (good — the constraint even catches test drift). Learned in Phase 9:
     spread SQL-shifted test bookings across rooms, and never swallow psql stderr in test helpers.
-16. **Dev DB baseline (re-verified at the Phase 16 session close, 2026-09-27):** the user keeps using the
+16. **Dev DB baseline (re-verified again at the Phase 18 session close, 2026-09-27 — same numbers):** the user keeps using the
     app, so the numbers drift between sessions — always re-read them with SQL before designing conflict
     tests. Seed leftovers (room `heaven` id 7, employee `rohan@gmail.com` id 7) are **real data — do not
-    suggest deleting them**. Baseline at Phase 16 close: **42 bookings, 72 participants, 1 check_in,
+    suggest deleting them**. Baseline at Phase 18 close: **42 bookings, 72 participants, 1 check_in,
     2 waitlist entries, 2 maintenance, 6 rooms, 7 equipment, 10 room_equipment, 6 employees** — unchanged
-    from the Phase 15 close, and the Phase 16 phase verified against exactly this. Note the
+    across the Phase 15, 16, 17 and 18 closes, and both Phase 18 harnesses verified against exactly this
+    (max real booking id 280, waitlist entries 1 and 28 intact). Note the
     `waitlist_entries` table name (§8.3's `waitlist` is the wrong name and errors).
     **Two seeded-data facts that shape test design here:** (a) only **6 employees** exist, so the smallest
     room (6 seats) can never be over-booked from the UI — 1 organiser + 5 colleagues = 6 = capacity
     exactly, so any capacity *boundary* test must temporarily lower a room's capacity through the admin
-    `updateRoom` mutation (and restore it); (b) the smallest room also being `DISABLED` means the
-    over-capacity client guard is unreachable with the data as shipped — it is verified by lowering
-    capacity, not by a data-only test. Temporary rows were removed with raw SQL because the API
-    deliberately has **no `deleteEquipment`** and Phase 16 needed no equipment, only bookings plus one
+    `updateRoom` mutation (and restore it), **or insert throwaway employees with SQL** (Phase 18 used
+    `p18-temp-*@example.com` rows to make the smallest *bookable* room, Vega 3.02 = 8 seats, genuinely
+    full, and to fill its remaining 7 participant slots; there is no delete-employee API, so the cleanup
+    script removes them with SQL); (b) the 6-seat room is `DISABLED`, so the smallest bookable room is
+    **Vega 3.02 at 8 seats** and the over-capacity client guard is likewise unreachable with the data as
+    shipped — it is verified by lowering capacity, not by a data-only test. Temporary rows were removed with
+    raw SQL because the API deliberately has **no `deleteEquipment`** and Phase 16 needed no equipment, only
+    bookings plus one
     temporary maintenance window (`deleteMaintenance` is admin-only — a cleanup script that runs it with
     an employee cookie silently fails).
 
@@ -1570,6 +1736,57 @@ layout (§9 "Next").
     headless Chrome **`:focus` styles only flush after a real key event** — a bare `el.focus()` can report
     `boxShadow: none` even when the ring works, which is §8.22's "the tooling can lie about the design"
     in a new form. Always assert the focus ring after dispatching a key, not after a programmatic focus.
+30. **A whole-row link swallows the row's action slot (Phase 17).** `BookingRow` makes the entire row the
+    link's hit area with an `after:absolute after:inset-0` overlay on a `relative` row, so anything in the
+    `ListRow` action slot sits *under* that overlay and cannot be clicked on its own. That is deliberate
+    (a booking row's only action is "open it"), but it means **never put a real button in a booking row's
+    action slot** — if a row ever needs its own action, it has to stop being one whole link.
+31. **Time-based panels and status-based engine rules do not agree at the edges (Phase 17).** The 10-minute
+    no-show release (Phase 9) and the 30-minute cancellation window (Phase 7) both act while a booking's
+    time range is still in the future, so "upcoming" and "still cancellable" are different sets for up to
+    10 minutes. My Bookings splits on **time** (matching its own copy, "bookings that have not finished
+    yet"), and gates the `In progress` note on `CONFIRMED` so a released booking is never described as
+    running. When a new surface needs "what can I still act on", ask for that explicitly rather than
+    inferring it from the time range. **Refinement from Phase 18:** the no-show release compares against the
+    booking's **start** (`findNoShowCandidates(now - 10min)`), *not* its end — a 21:30–22:30 booking with
+    nobody checked in is already `NO_SHOW` from 21:40, while it is still running. So an unreleased fixture
+    must start **more than 10 minutes in the future**; the Create Booking form's default slot (the next half
+    hour) is not a safe fixture, because a long UI run will be reading a released booking with no Cancel and
+    no Add People. (The Phase 17 note in §5 said "10 minutes after it ends" — that was wrong.)
+32. **`extensions.code` is typed `unknown` in Apollo v3 (Phase 17).** `error.graphQLErrors[0].extensions.code`
+    is `unknown`, so `getGraphQLErrorCode` (`utils/errors.ts`, added in Phase 17) narrows with
+    `typeof code === 'string'`. Returning it directly is a `tsc` error, not a runtime one.
+33. **Two CDP facts that cost three harness re-runs (Phase 17).** (a) `StatusBadge` renders
+    `<span><span aria-hidden>{glyph}</span>{label}</span>`, so a badge's `textContent` is `"✕Cancelled"`,
+    not `"Cancelled"` — assert with a suffix match, not equality. (b) A crashed harness leaves its headless
+    Chrome alive holding the `--remote-debugging-port` **and** the `--user-data-dir`; the next run then
+    silently attaches to that stale browser and its clicks go nowhere. Give every run a unique port +
+    profile, `spawn` Chrome with `stdio: 'ignore'`, and kill it from an `exit`/`uncaughtException` hook.
+    Also give `Runtime.evaluate` a timeout — a CDP response dropped during navigation otherwise hangs the
+    run forever.
+34. **The client keeps a step-for-step mirror of the server's recurrence generator (Phase 18).**
+    `frontend/src/utils/recurrence.ts` re-implements `generateOccurrences` (cadence, the 90-occurrence cap,
+    the inclusive end date) so the form can block an invalid series before submitting and label the button
+    `Create N Bookings`. There is no shared package, so **any change to the server's generator or cap must
+    be made here in the same commit** or the form will accept a series the server rejects (or block one it
+    would accept). The same reasoning is why `BookingConfirmedPanel` re-queries `recurringBookingGroup`
+    instead of trusting the client's own count, and why a series has no whole-series cancel/remove action —
+    every control acts on the one occurrence the user is looking at.
+35. **GraphQL argument validation answers before the service does (Phase 18).** `@ArrayMinSize(1)` on
+    `AddParticipantsInput.employeeIds` (a deliberately transient field, §8.20) means an empty list never
+    reaches `addParticipants` — the client sees `BAD_USER_INPUT` (class-validator), not the service's
+    `VALIDATION_ERROR`, and the modal must show that message verbatim like any other. The same applies to
+    `RemoveParticipantInput.employeeId`, so the client never sends `0`. Expect the *narrower* error class
+    whenever a mutation argument is declared non-empty.
+36. **A UI run that leaves stale fixtures will be graded against them, not against your new one (Phase 18).**
+    Two harness rules followed from this: (a) **clean the DB first** — `p18-ui-cleanup.mjs` deletes every
+    `P18 %` booking and `p18-temp-%` employee and prints the table counts, so a failed run's leftovers can
+    never be mistaken for a fresh fixture (a stale series' first occurrence was already `NO_SHOW` when the
+    next run looked for it, and the run then died on a cascade — `Illegal invocation` from a `setter.call`
+    on a `null` element); (b) **make fixtures unique per run** — the seed prints the IDs the harness needs
+    (`P18_FULL`, `P18_IMMINENT`, `P18_CAP`) and the harness refuses to run without them, because booking ids
+    from a previous run point at deleted rows. Also `process.exit()` at the end of a CDP run: the socket
+    keeps the event loop alive, so a finished run otherwise hangs until the shell times out.
 
 ## 9. Pending Decisions / Next Steps
 
@@ -1868,6 +2085,23 @@ layout (§9 "Next").
       "everything is taken" (§8.27)
 - [ ] Frontend: **icons come from `react-icons/lu`** (§9.3), not hand-rolled `<svg>`; and paired
       "now + offset" default form values are derived from **one** clock read (§8.28)
+- [ ] Frontend: booking lists use the shared `components/common/BookingRow.tsx` (Phase 17, §9.6) so every
+      booking row links to `/bookings/:id` — and its action slot stays a non-interactive badge, because the
+      whole-row link overlay covers it (§8.30)
+- [ ] Frontend: a panel that splits bookings by **time** must not derive a second fact ("in progress",
+      "still cancellable") from the time range alone — the engine's status rules act inside the future
+      (§8.31)
+- [ ] Frontend: a series/recurrence feature has **one** generator, mirrored step for step
+      (`utils/recurrence.ts` ↔ the server's), and the panel/consent copy says occurrences are acted on
+      **one at a time** — there is no whole-series cancel, and the confirmation re-reads the server's group
+      instead of a client count (§8.34)
+- [ ] Frontend: a participant-control surface (add/remove) shows the server's rejection **verbatim** where the
+      user acted, states the rule in the modal instead of pre-computing it, and gates the control on
+      organiser-or-admin rather than on a client-side time calculation (§9.6)
+- [ ] Frontend: an empty value for a mutation arg declared `@ArrayMinSize(1)` is rejected by class-validator
+      as **`BAD_USER_INPUT`**, not by the service — never assert the service's error class for it (§8.35)
+- [ ] Any live-stack verification against the dev DB: clean the previous run's fixtures **first**, make the
+      new fixtures unique, and re-read the baseline counts with SQL afterwards (§8.16, §8.36)
 
 Report a change/decision here when it affects how the app runs (tooling, schema, phases, conventions).
 
@@ -1977,3 +2211,83 @@ Two follow-ups, both now closed and recorded in §5/§8 rather than left open:
 - **The `employees` query is the phase's only backend change**, and it was raised with the user *before*
   any code was written, per the standing rule. The wider "does any other phase need a directory query?"
   sweep was not proposed and not done.
+
+### 9.6 Decided 2026-09-27 — Phase 17 Manage Bookings & Cancellation (frontend)
+
+The user authorised Phase 17 and answered six questions up front (the §9.3/§9.4/§9.5 pattern — ask, then
+build). No design was supplied for any of the three screens.
+
+- **No design references were given for My Bookings, Booking Details or the cancel modal.** → **Improvise
+  on the existing §7.1/§7.2 primitives** (`AppCard`, `PanelCard`, `ListRow`, `StatusBadge`, `Modal`, the
+  existing `Button` variants, `PageHeader topPad="pt-10"`), exactly as §9.4/§9.5 did. Recorded as not
+  pixel-referenced (§5).
+- **`/meetings` (My Meetings) was listed as a later phase. Build it in Phase 17?** → **Yes.** It is one
+  page over the existing `myMeetings` query, and the employee dashboard's two meeting panels were going to
+  need the same shared row anyway. The nav link already existed.
+- **How should My Bookings be split?** → **Two panels, Upcoming and Past**, with **Past capped at 10 rows**
+  and a `Show all` / `Show less` control. Upcoming is soonest first, Past most recent first, and a booking
+  that is under way right now stays in Upcoming (marked `In progress`) rather than jumping lists.
+- **Should the Cancel button be hidden or disabled once the 30-minute window has passed?** → **No — keep
+  it available on confirmed bookings, explain the 30-minute rule in the modal, and show the server's
+  authoritative error.** So the client never does time maths to gate the action; the two real rejections
+  ("Bookings can only be cancelled until 30 minutes before they start." and "You are not allowed to perform
+  this action.") appear verbatim, in the modal, where the user acted. A consequence, recorded so it is not
+  mistaken for an oversight: **the Cancel action is shown to any viewer of a confirmed booking, including a
+  participant who can never use it** — hiding it per-role was not chosen, because the server is the
+  authority for ownership and the button doubles as the honest way to surface that.
+- **What should Booking Details show beyond the booking itself?** → **The read-only check-in state and the
+  recurring-series information.** Both are plain selections on the existing `BookingType`. Participant
+  add/remove is explicitly **not** in this phase (Phase 18+), and the check-in **button** is Phase 19 — this
+  phase only reports what already happened.
+- **Should every booking row across the app link to `/bookings/:id`?** → **Yes** — My Bookings, My
+  Meetings, and both employee-dashboard meeting panels. Hence the shared `BookingRow` primitive (and the
+  §8.30 consequence that its action slot cannot hold a real button).
+
+Two follow-ups, both closed in the same session and recorded in §5/§8 rather than left open:
+
+- **A released booking was described as "In progress".** The 10-minute no-show release flips a booking to
+  `NO_SHOW` while its time range is still in the future, so the first cut printed `In progress` on a meeting
+  that had already been given up on. The note is now gated on `CONFIRMED` (§8.31).
+- **`getGraphQLErrorCode` was needed by the details page and did not exist** — `utils/errors.ts` only had
+  the message helper. Added, with the `typeof` narrowing Apollo's `unknown` `extensions.code` requires
+  (§8.32). `DetailRow.value` also had to become `ReactNode`, because the room cell is a `<Link>`.
+
+### 9.7 Decided 2026-09-27 — Phase 18: recurring meetings + the participant controls the user pulled in
+
+Authorisation: the user asked to continue with the Phase 18 checklist, and (a) chose to **pull the
+participant add/remove UI into this phase** rather than leave it for a later one, and (b) approved
+running the verification fresh — API, headless-Chrome UI, then the DB baseline.
+
+- **How should a series behave in the UI?** → **One occurrence at a time, everywhere.** The details page
+  has a `RecurringSeriesPanel` that lists the series (capped at 10 with Show all), each row linking to its
+  own booking; cancelling, adding and removing all act on the single occurrence the user is on, and the
+  panel and both modals **say so**. There is deliberately **no whole-series cancel** — that would need a
+  different backend operation and a different confirmation, so it is out of scope until asked for.
+- **Should the client pre-compute the 30-minute participant window?** → **No**, same decision as Phase 17's
+  cancel modal (§9.6): the modal states the rule ("Only the organiser of this booking — or an admin — can
+  add or remove people, and only until 30 minutes before it starts"), and the server's rejection is shown
+  **verbatim, where the user acted**, with the modal staying open. Consequence recorded so it is not read as
+  a bug: a user *can* open the picker at 29 minutes and be refused.
+- **Should the add/remove controls be hidden per role in the client?** → **One `Add People` control,
+  shown to the organiser or an admin only** (the server remains the authority — an unrelated user gets
+  `NOT_ALLOWED`). A participant gets `Leave` on **their own** row only, titled **"Leave this meeting"**; the
+  organiser/admin gets the remove confirm. The user was shown the wording and kept it. The title/button
+  split matches `CancelBookingModal` ("Cancel Booking" / "Cancel <title>?"): the **title** is
+  *"Leave this meeting"* and the confirming **button** is *"Leave meeting"*.
+- **Should the confirmation page report a client-side occurrence count?** → **No.** `BookingConfirmedPanel`
+  re-queries `recurringBookingGroup` and shows the server's own list (first 5 + "and n more"), so the
+  confirmation cannot disagree with the series.
+- **Should the row note be a stored pattern?** → **No — it is derived.** `bookingRowNote` infers
+  "Repeats every week / every day" from the **gaps between the occurrences on screen**, so a series that
+  was edited occurrence-by-occurrence still describes what is actually on the calendar. My Bookings shows it
+  as a subtle second-line note next to the existing context, never as the row title.
+- **Verification fixture decisions (user's calls):** a **full-room fixture needs real extra employees**, so
+  the seed inserts two throwaway `p18-temp-*@example.com` rows with SQL (there is no delete-employee API)
+  and the cleanup script removes them; the UI harness asserts the modal's **title**
+  (`Leave this meeting`) rather than its button label (`Leave meeting`) — the assertion was wrong, the
+  wording was right; and both the API and UI passes were re-run from a clean DB, with the baseline counts
+  re-read at the end. §8.36 records what that fixture discipline is protecting against.
+- **Not decided / not built here:** whole-series cancel or edit, a recurrence "skip this occurrence"
+  affordance beyond cancelling it, editing a series' cadence after creation, and any server-side
+  recurrence object beyond the `recurrenceId` that already exists. Raise these with the user before
+  building them.

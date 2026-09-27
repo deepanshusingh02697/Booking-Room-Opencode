@@ -26,6 +26,10 @@ import {
   isBookingChangeWindowOpen,
 } from '../utils/booking-time-policy';
 import {
+  formatConflictTime,
+  formatConflictWindow,
+} from '../utils/conflict-message-time';
+import {
   buildRecurrenceId,
   generateOccurrences,
   RecurrenceFrequency,
@@ -580,7 +584,10 @@ export class BookingService {
           ? ` (${conflictingMaintenance.reason})`
           : '';
         throw new ConflictError(
-          `Room "${room.name}" is under maintenance during the requested time, ${conflictingMaintenance.startTime.toISOString()} to ${conflictingMaintenance.endTime.toISOString()}${reason}.`,
+          `Room "${room.name}" is under maintenance during the requested time, ${formatConflictWindow(
+            conflictingMaintenance.startTime,
+            conflictingMaintenance.endTime,
+          )}${reason}.`,
         );
       }
 
@@ -695,7 +702,12 @@ export class BookingService {
     occurrence: NewBookingData,
     conflictingBooking: Booking,
   ): string {
-    return `Room "${room.name}" is already booked for the occurrence at ${occurrence.startTime.toISOString()} (conflicts with "${conflictingBooking.title}", ${conflictingBooking.startTime.toISOString()} to ${conflictingBooking.endTime.toISOString()}).`;
+    return `Room "${room.name}" is already booked for the occurrence at ${formatConflictTime(
+      occurrence.startTime,
+    )} (conflicts with "${conflictingBooking.title}", ${formatConflictWindow(
+      conflictingBooking.startTime,
+      conflictingBooking.endTime,
+    )}).`;
   }
 
   private buildRecurringMaintenanceConflictMessage(
@@ -706,7 +718,12 @@ export class BookingService {
     const reason = conflictingMaintenance.reason
       ? ` (${conflictingMaintenance.reason})`
       : '';
-    return `Room "${room.name}" is under maintenance during the occurrence at ${occurrence.startTime.toISOString()} (${conflictingMaintenance.startTime.toISOString()} to ${conflictingMaintenance.endTime.toISOString()}${reason}).`;
+    return `Room "${room.name}" is under maintenance during the occurrence at ${formatConflictTime(
+      occurrence.startTime,
+    )} (${formatConflictWindow(
+      conflictingMaintenance.startTime,
+      conflictingMaintenance.endTime,
+    )}${reason}).`;
   }
 
   private async notifyParticipantsAdded(
@@ -753,7 +770,10 @@ export class BookingService {
     room: Room,
     conflictingBooking: Booking,
   ): string {
-    return `Room "${room.name}" is already booked for the requested time (conflicts with "${conflictingBooking.title}", ${conflictingBooking.startTime.toISOString()} to ${conflictingBooking.endTime.toISOString()}).`;
+    return `Room "${room.name}" is already booked for the requested time (conflicts with "${conflictingBooking.title}", ${formatConflictWindow(
+      conflictingBooking.startTime,
+      conflictingBooking.endTime,
+    )}).`;
   }
 
   private async createWithConflictMapping(

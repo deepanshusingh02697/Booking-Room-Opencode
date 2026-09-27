@@ -2,10 +2,10 @@
 
 **Project type:** Full-stack meeting-room booking system
 **Source of truth:** doc/requirement.md
-**Status:** **Phases 1–16 implemented** (the full backend track 1–13, verified through the API + a bare
-Socket.io client with no UI, plus the first three frontend phases: 14 Rooms, 15 Equipment and
-16 Core Booking).
-Phases 17–23 (the rest of the frontend track) follow, in the same feature order: each
+**Status:** **Phases 1–18 implemented** (the full backend track 1–13, verified through the API + a bare
+Socket.io client with no UI, plus the first five frontend phases: 14 Rooms, 15 Equipment,
+16 Core Booking, 17 Manage Bookings & Cancellation and 18 Recurring Meetings).
+Phases 19–23 (the rest of the frontend track) follow, in the same feature order: each
 opens with a "Backend adjustments" step against the already-proven API rather than starting a new
 module. Hardening (24) and docs/delivery (25) close the project.
 
@@ -602,7 +602,7 @@ and the employee dashboard's "Book a Room" action. Recurrence is deliberately ab
 stays on the page in a confirmation panel with "Book another room" / "View My Bookings" (the latter points
 at Phase 17's placeholder). Verified live: 44/44 API checks (every `createBooking` rule, the
 `employees` query, and 3/3 concurrent double-booking rounds resolving to exactly one winner) and 86/86
-headless-Chrome UI checks + 17/17 design-token/geometry checks; DB left at its exact baseline (§9.6 of
+headless-Chrome UI checks + 17/17 design-token/geometry checks; DB left at its exact baseline (§9.5 of
 `project-state.md`).
 
 ### Phase 17 — Manage Bookings & Cancellation (Frontend)
@@ -616,6 +616,23 @@ headless-Chrome UI checks + 17/17 design-token/geometry checks; DB left at its e
 
 **Deliverable:** Full booking management in the UI.
 **Done when:** You can view and cancel your own bookings; cancelling someone else's is rejected with a clear message.
+**Status: DONE (2026-09-27).** No backend change at all — `myBookings`, `myMeetings`, `bookingDetails` and
+`cancelBooking` already carried what the UI needed; the only GraphQL work was selection sets, including
+`bookingDetails`' `hasCheckedIn`, `checkIn { … employee }`, `createdAt` and `updatedAt` (all already on
+`BookingType` from Phases 7/9). Frontend: `BookingRow`, a new shared primitive wrapped on `ListRow` that
+makes each booking row a link to `/bookings/:id`, used by My Bookings, My Meetings and both
+employee-dashboard meeting panels; `MyBookingsPage` (two panels, Upcoming soonest-first and Past capped at
+10 rows with Show all / Show less, "In progress" on a running booking); `BookingDetailsPage` (booking, room
+and participants cards, read-only check-in and series rows, a status note for bookings the engine already
+acted on); `CancelBookingModal`; and `MyMeetingsPage` at `/meetings`, which the plan had listed for later.
+Per the user's decision (§9.6) the Cancel button is **never** disabled or hidden on client-side time maths:
+the modal explains the 30-minute rule and shows the server's rejection verbatim, so both "only be cancelled
+until 30 minutes before they start" and "not allowed to perform this action" are visible where the user
+acted. Participant controls are out of scope (Phase 18+) and the check-in button is Phase 19 — this phase
+only reports check-in state. Verified live: 41/41 API checks (the whole `bookingDetails` access matrix,
+every `cancelBooking` rule including admin-cancels-someone-else's, and the waitlist auto-conversion the
+modal promises) and 52/52 + 6/6 headless-Chrome UI checks; DB left at its exact baseline (§9.6 of
+`project-state.md`).
 
 ### Phase 18 — Recurring Meetings (Frontend)
 
@@ -627,6 +644,45 @@ headless-Chrome UI checks + 17/17 design-token/geometry checks; DB left at its e
 
 **Deliverable:** Recurring bookings usable end-to-end.
 **Done when:** A user can create a recurring series from the UI and see conflicts across occurrences rejected clearly.
+**Status: DONE (2026-09-27).** Backend: no contract change — `recurringBookingGroup` was already lean, and the
+check the plan asked for confirmed it stays that way (it selects only `BookingType` scalars, so no per-occurrence
+field resolvers and no N+1). What the backend *did* need was human error text: a new
+`bookings/utils/conflict-message-time.ts` (`formatConflictTime` / `formatConflictWindow`, `en-GB` + `timeZone:
+'UTC'`) now renders all four conflict/maintenance messages with explicit UTC instead of raw ISO, e.g.
+`Room "Vega 3.02" is already booked for the occurrence at Mon, 1 Feb 2027, 09:00 UTC (conflicts with
+"Phase18 weekly test", Mon, 1 Feb 2027, 09:00 UTC to Mon, 1 Feb 2027, 09:30 UTC).` The other raw-ISO messages
+in check-in, waitlist and maintenance were left alone — they are not booking conflicts and were never in scope.
+Frontend: `RecurrenceFrequency` on the type, `toLocalDateValue` / `endOfLocalDay` / `addDaysInput` date helpers, a
+step-for-step client mirror of the server's generator in `utils/recurrence.ts` (`previewOccurrences`,
+`repeatUntilToGraphQLDate`, `frequencyLabel`/`frequencyAdverb`, `buildRecurrenceNotes`, `bookingRowNote`),
+a new `DatePicker` form control, and `RecurrenceSection` (repeat toggle, Every day/Every week cards, an
+inclusive "Repeat until" date, a live 5-row preview with a 90-occurrence hint) inside Create Booking. The form
+submits `recurrence` only when repeat is on (a `null` would be a different request, §8.25), mirrors the server's
+cap/overlap/end-date rules to block bad series before submitting, and labels the button `Create N Bookings`.
+`BookingConfirmedPanel` replaces the old confirmation for both cases and re-reads the authoritative series after
+creation. Booking Details gains a `RecurringSeriesPanel` (its occurrence count feeds the Series row; the panel
+lists the series capped at 10 with Show all and states that occurrences are cancelled one at a time — there is no
+whole-series cancel) on top of the shared `DetailRow`, plus the participant work the user pulled into this phase:
+`AddParticipantsModal` (reusing the Create Booking `ParticipantPicker` via a new `excludeIds` prop, one batch
+mutation, capacity left in the subtitle, verbatim server errors) and `RemoveParticipantModal` (confirm, titled
+"Leave this meeting" for a participant removing themself and "Leave meeting" on its button, like Phase 17's
+`CancelBookingModal`'s title/button split), behind one `Add People` control that only the organiser or
+an admin sees. Per §9.6's rule, reaffirmed in §9.7, no client-side 30-minute maths gates these controls — the
+modals state the rule and the server's rejection is shown where the user acted. Recurring rows now carry a
+subtle note (`Repeats every week`) on My Bookings, My Meetings and both employee-dashboard panels, inferred from
+the gaps between the occurrences on screen. Verified live: **64/64 API checks** (inclusive end date, the exact
+90/91 cap boundary, both conflict and
+maintenance message shapes, half-open back-to-back still allowed, the full `addParticipants`/`removeParticipant`
+permission + capacity + 30-minute + cancelled-booking matrix, and `recurringBookingGroup` authorisation for a
+participant, an admin and an unrelated user) and **52/52 headless-Chrome UI checks** over the live stack — the
+Create Booking recurrence section (preview recompute, the 90-cap block, `Create 4 Bookings`), the confirmation
+panel, the recurring row notes on all four lists, the series panel (cap 10 + Show all, per-occurrence links, no
+whole-series cancel), the add/remove modals as organiser, as a participant self-removing (including the
+30-minute rejection shown verbatim), the full-room message from a SQL-seeded temp roster, and a 390 px pass with
+no console errors. `npm run typecheck` and `npm run build` (both workspaces) pass and the DB is left at its exact
+session-start baseline (§9.7 of `project-state.md` records the numbers, the harness locations and the fixture
+rules).
+
 
 ### Phase 19 — Check-in & No-show (Frontend)
 

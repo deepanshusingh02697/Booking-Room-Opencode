@@ -16,6 +16,12 @@ type ParticipantPickerProps = {
   currentUserId: number | undefined;
   /** Attendee budget left in the selected room, or null when no room is chosen yet. */
   remainingSeats: number | null;
+  /**
+   * Employees to hide — the ones already on the booking when the picker is used
+   * to add someone (Phase 18). The server rejects a duplicate with a CONFLICT,
+   * so offering them would only ever produce an error.
+   */
+  excludeIds?: number[];
 };
 
 const fullName = (employee: Employee) =>
@@ -26,24 +32,29 @@ export const ParticipantPicker = ({
   onChange,
   currentUserId,
   remainingSeats,
+  excludeIds = [],
 }: ParticipantPickerProps) => {
   const [search, setSearch] = useState('');
   const { data, loading, error, refetch } = useQuery<EmployeesData>(
     EMPLOYEES_QUERY,
   );
 
+  const everyoneElse = useMemo(
+    () => (data?.employees ?? []).filter((employee) => employee.id !== currentUserId),
+    [data, currentUserId],
+  );
+
   const colleagues = useMemo(() => {
-    const all = data?.employees ?? [];
     const term = search.trim().toLowerCase();
-    return all
-      .filter((employee) => employee.id !== currentUserId)
+    return everyoneElse
+      .filter((employee) => !excludeIds.includes(employee.id))
       .filter(
         (employee) =>
           term === '' ||
           fullName(employee).toLowerCase().includes(term) ||
           employee.email.toLowerCase().includes(term),
       );
-  }, [data, search, currentUserId]);
+  }, [everyoneElse, search, excludeIds]);
 
   const overCapacity =
     remainingSeats !== null && value.length > remainingSeats;
@@ -90,9 +101,11 @@ export const ParticipantPicker = ({
         <LoadingState />
       ) : colleagues.length === 0 ? (
         <p className="mt-3 text-sm text-muted">
-          {search.trim() === ''
-            ? 'There are no other employees to invite yet.'
-            : 'No colleague matches that search.'}
+          {search.trim() !== ''
+            ? 'No colleague matches that search.'
+            : everyoneElse.length === 0
+              ? 'There are no other employees to invite yet.'
+              : 'Everyone else is already on this booking.'}
         </p>
       ) : (
         <div className="mt-3 flex flex-wrap gap-2">

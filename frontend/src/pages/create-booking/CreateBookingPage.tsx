@@ -7,7 +7,6 @@ import { Button } from '../../components/common/Button';
 import { ErrorState } from '../../components/common/ErrorState';
 import { LoadingState } from '../../components/common/LoadingState';
 import { PageHeader } from '../../components/common/PageHeader';
-import { StatusBadge } from '../../components/common/StatusBadge';
 import { DateTimePicker } from '../../components/forms/DateTimePicker';
 import { Input } from '../../components/forms/Input';
 import {
@@ -21,17 +20,26 @@ import {
   type RoomsVars,
 } from '../../graphql/queries/rooms';
 import { useAuth } from '../../hooks/useAuth';
-import { bookingStatusMeta, field, roomStatusMeta, typeScale } from '../../theme';
-import { RoomStatus, type Booking, type Room } from '../../types';
+import { field, roomStatusMeta, typeScale } from '../../theme';
 import {
+  RecurrenceFrequency,
+  RoomStatus,
+  type Booking,
+  type Room,
+} from '../../types';
+import {
+  addDaysInput,
   defaultSlotInput,
-  formatDateTime,
-  formatTime,
+  endOfLocalDay,
   localInputToGraphQLDate,
   nextHalfHourInput,
+  toLocalDateValue,
 } from '../../utils/date';
 import { getGraphQLErrorMessage } from '../../utils/errors';
+import { previewOccurrences, repeatUntilToGraphQLDate } from '../../utils/recurrence';
+import { BookingConfirmedPanel } from './BookingConfirmedPanel';
 import { ParticipantPicker } from './ParticipantPicker';
+import { RecurrenceSection } from './RecurrenceSection';
 
 const TITLE_MAX = 200;
 const DESCRIPTION_MAX = 1000;
@@ -41,13 +49,6 @@ const parseLocal = (value: string): Date | null => {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
-
-const DetailRow = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex items-baseline justify-between gap-4 border-b border-rule py-3 last:border-b-0">
-    <dt className="text-sm text-muted">{label}</dt>
-    <dd className="text-right text-sm text-body">{value}</dd>
-  </div>
-);
 
 export const CreateBookingPage = () => {
   const { user } = useAuth();
@@ -68,6 +69,17 @@ export const CreateBookingPage = () => {
       : null,
   );
   const [participantIds, setParticipantIds] = useState<number[]>([]);
+  const [repeats, setRepeats] = useState(false);
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>(
+    RecurrenceFrequency.WEEKLY,
+  );
+  // A week past the first booking: a sensible starting point for either cadence
+  // that is well inside the 90-occurrence cap. The user owns it from here — the
+  // frequency switch deliberately does not move it, and the preview below says
+  // exactly what the current pair of values produces.
+  const [repeatUntil, setRepeatUntil] = useState(() =>
+    toLocalDateValue(addDaysInput(defaultSlot.startTime, 7)),
+  );
   const [created, setCreated] = useState<Booking | null>(null);
 
   const start = parseLocal(startTime);
@@ -105,6 +117,23 @@ export const CreateBookingPage = () => {
   const attendees = participantIds.length + 1;
   const remainingSeats = selectedRoom ? selectedRoom.capacity - 1 : null;
 
+  // The exact occurrences the server would create, recomputed as the user types.
+  // Advisory only — the server regenerates and re-validates them all.
+  const recurrencePreview = useMemo(() => {
+    if (!repeats || !start || !end || !rangeIsUsable) {
+      return { starts: [], error: null };
+    }
+    if (!repeatUntil) {
+      return { starts: [], error: 'Choose the date the series ends on.' };
+    }
+    return previewOccurrences({
+      startTime: start,
+      endTime: end,
+      frequency,
+      endDate: endOfLocalDay(repeatUntil),
+    });
+  }, [repeats, start, end, rangeIsUsable, frequency, repeatUntil]);
+
   const errors = useMemo(() => {
     const next: Record<string, string> = {};
     const now = Date.now();
@@ -125,6 +154,10 @@ export const CreateBookingPage = () => {
 
     if (roomId === null) next.roomId = 'Choose a room to book.';
 
+    if (repeats && rangeIsUsable && recurrencePreview.error) {
+      next.recurrence = recurrencePreview.error;
+    }
+
     if (
       selectedRoom &&
       remainingSeats !== null &&
@@ -134,7 +167,7 @@ export const CreateBookingPage = () => {
     }
 
     return next;
-  }, [startTime, endTime, title, roomId, selectedRoom, participantIds, remainingSeats, attendees]);
+  }, [startTime, endTime, title, roomId, selectedRoom, participantIds, remainingSeats, attendees, repeats, rangeIsUsable, recurrencePreview.error]);
 
   const blockingErrors = Object.keys(errors);
   const availabilityKnown = !availability.loading && !availability.error;
@@ -170,6 +203,16 @@ export const CreateBookingPage = () => {
             startTime: localInputToGraphQLDate(startTime),
             endTime: localInputToGraphQLDate(endTime),
             ...(participantIds.length > 0 ? { participantIds } : {}),
+            // Omitted, never `null`, when the booking does not repeat
+            // (doc/project-state.md §8.25).
+            ...(repeats && repeatUntil
+              ? {
+                  recurrence: {
+                    frequency,
+                    endDate: repeatUntilToGraphQLDate(repeatUntil),
+                  },
+                }
+              : {}),
           },
         },
       });
@@ -189,69 +232,12 @@ export const CreateBookingPage = () => {
     setRoomId(null);
     setStartTime(slot.startTime);
     setEndTime(slot.endTime);
+    setRepeats(false);
+    setRepeatUntil(toLocalDateValue(addDaysInput(slot.startTime, 7)));
   };
 
   if (created) {
-    return (
-      <div>
-        <PageHeader
-          title="Booking Confirmed"
-          sub={`${created.title} is booked and on the calendar.`}
-          topPad="pt-10"
-        />
-        <AppCard>
-          <div className="flex items-center justify-between gap-4">
-            <h2 className={typeScale.panelTitle}>{created.title}</h2>
-            <StatusBadge meta={bookingStatusMeta[created.status]} />
-          </div>
-          <dl className="mt-4 flex flex-col">
-            <DetailRow
-              label="Room"
-              value={created.room?.name ?? `Room #${created.roomId}`}
-            />
-            <DetailRow
-              label="When"
-              value={`${formatDateTime(created.startTime)} – ${formatTime(
-                created.endTime,
-              )}`}
-            />
-            <DetailRow
-              label="Organiser"
-              value={
-                created.organizer
-                  ? `${created.organizer.firstName} ${created.organizer.lastName}`
-                  : 'You'
-              }
-            />
-            <DetailRow
-              label="Participants"
-              value={
-                created.participants && created.participants.length > 0
-                  ? created.participants
-                      .map((p) =>
-                        p.employee
-                          ? `${p.employee.firstName} ${p.employee.lastName}`
-                          : `Employee #${p.employeeId}`,
-                      )
-                      .join(', ')
-                  : 'Just you'
-              }
-            />
-          </dl>
-          {created.description && (
-            <p className="mt-4 text-sm text-muted">{created.description}</p>
-          )}
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Button variant="primary" onClick={reset}>
-              Book another room
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/bookings')}>
-              View My Bookings
-            </Button>
-          </div>
-        </AppCard>
-      </div>
-    );
+    return <BookingConfirmedPanel booking={created} onReset={reset} />;
   }
 
   return (
@@ -413,6 +399,17 @@ export const CreateBookingPage = () => {
             />
           </div>
 
+          <RecurrenceSection
+            repeats={repeats}
+            onToggleRepeats={setRepeats}
+            frequency={frequency}
+            onFrequencyChange={setFrequency}
+            until={repeatUntil}
+            onUntilChange={setRepeatUntil}
+            minDate={start ? toLocalDateValue(start) : ''}
+            preview={recurrencePreview}
+          />
+
           {selectedRoomUnavailable && (
             <p role="status" className="mt-6 text-sm text-red-600">
               {selectedRoom.name} is not free for the selected time — submitting
@@ -437,7 +434,9 @@ export const CreateBookingPage = () => {
               icon={<LuPlus aria-hidden />}
               onClick={() => void submit()}
             >
-              Create Booking
+              {repeats && recurrencePreview.starts.length > 1
+                ? `Create ${recurrencePreview.starts.length} Bookings`
+                : 'Create Booking'}
             </Button>
           </div>
         </AppCard>

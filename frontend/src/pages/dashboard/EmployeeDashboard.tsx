@@ -7,34 +7,23 @@ import { StatCard } from '../../components/common/StatCard';
 import { PanelCard } from '../../components/common/PanelCard';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
-import { ListRow } from '../../components/common/ListRow';
+import { BookingRow } from '../../components/common/BookingRow';
 import { LoadingState } from '../../components/common/LoadingState';
-import { StatusBadge } from '../../components/common/StatusBadge';
 import { Button } from '../../components/common/Button';
 import {
   MY_MEETINGS_QUERY,
   type MyMeetingsData,
 } from '../../graphql/queries/bookings';
 import { ROOMS_QUERY, type RoomsData, type RoomsVars } from '../../graphql/queries/rooms';
-import { bookingStatusMeta, copy, layout } from '../../theme';
-import { RoomStatus, type Booking } from '../../types';
+import { copy, layout } from '../../theme';
+import { RoomStatus } from '../../types';
 import {
-  formatTimeRange,
   isAfterLocalDay,
   isSameLocalDay,
   startOfTomorrow,
 } from '../../utils/date';
+import { bookingRowNote, buildRecurrenceNotes } from '../../utils/recurrence';
 import { useAuth } from '../../hooks/useAuth';
-
-const MeetingRow = ({ booking }: { booking: Booking }) => (
-  <ListRow action={<StatusBadge meta={bookingStatusMeta[booking.status]} />}>
-    <p className="truncate text-[15px] text-body">{booking.title}</p>
-    <p className="mt-1 text-sm text-muted">
-      {formatTimeRange(booking.startTime, booking.endTime)}
-      {booking.room ? ` · ${booking.room.name}` : ''}
-    </p>
-  </ListRow>
-);
 
 export const EmployeeDashboard = () => {
   const { user } = useAuth();
@@ -46,6 +35,7 @@ export const EmployeeDashboard = () => {
 
   const all = meetings.data?.myMeetings ?? [];
   const todayStart = useMemo(() => startOfTomorrow(), []);
+  const recurrenceNotes = useMemo(() => buildRecurrenceNotes(all), [all]);
 
   const todaysMeetings = useMemo(
     () => all.filter((m) => isSameLocalDay(m.startTime)),
@@ -102,7 +92,11 @@ export const EmployeeDashboard = () => {
           ) : (
             <div className="flex flex-col">
               {todaysMeetings.map((meeting) => (
-                <MeetingRow key={meeting.id} booking={meeting} />
+                <BookingRow
+                  key={meeting.id}
+                  booking={meeting}
+                  note={bookingRowNote(meeting, recurrenceNotes)}
+                />
               ))}
             </div>
           )}
@@ -142,7 +136,11 @@ export const EmployeeDashboard = () => {
           ) : (
             <div className="flex flex-col">
               {upcomingMeetings.map((meeting) => (
-                <MeetingRow key={meeting.id} booking={meeting} />
+                <BookingRow
+                  key={meeting.id}
+                  booking={meeting}
+                  note={bookingRowNote(meeting, recurrenceNotes)}
+                />
               ))}
             </div>
           )}

@@ -8,6 +8,9 @@ import { RoomDetailsPage } from '../pages/room-details/RoomDetailsPage';
 import { AdminRoomsPage } from '../pages/admin-rooms/AdminRoomsPage';
 import { EquipmentPage } from '../pages/equipment/EquipmentPage';
 import { CreateBookingPage } from '../pages/create-booking/CreateBookingPage';
+import { MyBookingsPage } from '../pages/my-bookings/MyBookingsPage';
+import { MyMeetingsPage } from '../pages/my-meetings/MyMeetingsPage';
+import { BookingDetailsPage } from '../pages/booking-details/BookingDetailsPage';
 import { AdminRoute } from './AdminRoute';
 import { ProtectedRoute } from './ProtectedRoute';
 
@@ -27,24 +30,13 @@ export const AppRoutes = () => {
             path="create-booking"
             element={<CreateBookingPage />}
           />
-          <Route
-            path="bookings"
-            element={<PlaceholderPage title="My Bookings" phase="Phase 17" />}
-          />
-          <Route
-            path="bookings/:id"
-            element={
-              <PlaceholderPage title="Booking Details" phase="Phase 17" />
-            }
-          />
+          <Route path="bookings" element={<MyBookingsPage />} />
+          <Route path="bookings/:id" element={<BookingDetailsPage />} />
           <Route
             path="wait-list"
             element={<PlaceholderPage title="Wait-List" phase="Phase 20" />}
           />
-          <Route
-            path="meetings"
-            element={<PlaceholderPage title="Meetings" phase="Phase 17" />}
-          />
+          <Route path="meetings" element={<MyMeetingsPage />} />
           <Route element={<AdminRoute />}>
             <Route path="admin/rooms" element={<AdminRoomsPage />} />
             <Route
