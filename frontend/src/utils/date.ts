@@ -133,3 +133,140 @@ export const formatTime = (value: string | Date): string => {
 
 export const formatTimeRange = (start: string | Date, end: string | Date): string =>
   `${formatTime(start)} – ${formatTime(end)}`;
+
+/** Calendar-day stepping on a `Date`, so the time of day survives a DST change. */
+export const addDays = (date: Date, days: number): Date => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+};
+
+/** Local midnight of a `YYYY-MM-DD` value — the inclusive start of that day. */
+export const startOfLocalDayValue = (dateValue: string): Date => {
+  const [year, month, day] = dateValue.split('-').map(Number);
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
+};
+
+/** Local midnight of the day *after* a `YYYY-MM-DD` value — the exclusive end. */
+const startOfNextLocalDayValue = (dateValue: string): Date =>
+  addDays(startOfLocalDayValue(dateValue), 1);
+
+/** A day range as the two `YYYY-MM-DD` values a date input holds. */
+export interface LocalDateRange {
+  from: string;
+  to: string;
+}
+
+/** A day range as the `DateRangeInput` the analytics queries take. */
+export interface GraphQLDateRange {
+  startTime: string;
+  endTime: string;
+}
+
+/**
+ * A `LocalDateRange` as the GraphQL range the admin queries expect.
+ *
+ * The end is the *exclusive* start of the following day, because both queries
+ * match on half-open interval overlap (`startTime < rangeEnd AND endTime >
+ * rangeStart`): a booking starting exactly at midnight of the day after `to`
+ * must not appear, while everything inside the picked days must.
+ */
+export const localDateRangeToGraphQL = (
+  range: LocalDateRange,
+): GraphQLDateRange => ({
+  startTime: toGraphQLDate(startOfLocalDayValue(range.from)),
+  endTime: toGraphQLDate(startOfNextLocalDayValue(range.to)),
+});
+
+export type DateRangePresetId = 'today' | 'week' | 'month' | 'last30';
+
+export type DateRangePreset = {
+  id: DateRangePresetId;
+  label: string;
+  /** Both bounds come from one `now`, so a range can never straddle midnight. */
+  build: (now: Date) => LocalDateRange;
+};
+
+const localDay = (value: string | Date): string => toLocalDateValue(value);
+
+/** Monday of the week `now` falls in, at local midnight. */
+const startOfLocalWeek = (now: Date): Date =>
+  addDays(startOfToday(now), -((now.getDay() + 6) % 7));
+
+const weekPreset: DateRangePreset = {
+  id: 'week',
+  label: 'This week',
+  build: (now) => ({
+    from: localDay(startOfLocalWeek(now)),
+    to: localDay(addDays(startOfLocalWeek(now), 6)),
+  }),
+};
+
+/**
+ * The ranges the admin Calendar and Analytics pages offer. Every bound is
+ * derived from the one `now` the page reads, and "This week" starts on Monday
+ * (the ISO week, matching the en-GB copy elsewhere in the app).
+ */
+export const dateRangePresets: DateRangePreset[] = [
+  {
+    id: 'today',
+    label: 'Today',
+    build: (now) => ({ from: localDay(now), to: localDay(now) }),
+  },
+  weekPreset,
+  {
+    id: 'month',
+    label: 'This month',
+    build: (now) => ({
+      from: localDay(new Date(now.getFullYear(), now.getMonth(), 1)),
+      to: localDay(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+    }),
+  },
+  {
+    id: 'last30',
+    label: 'Last 30 days',
+    build: (now) => ({
+      from: localDay(addDays(startOfToday(now), -29)),
+      to: localDay(now),
+    }),
+  },
+];
+
+export const buildDateRange = (preset: DateRangePreset, now: Date = new Date()) =>
+  preset.build(now);
+
+/**
+ * The range the admin Calendar and Analytics pages open on: this week. Both
+ * bounds come from one reading of the clock.
+ */
+export const defaultLocalDateRange = (now: Date = new Date()): LocalDateRange =>
+  buildDateRange(weekPreset, now);
+
+/** True when a range is exactly the one a preset builds from `now`. */
+export const isPresetRange = (
+  range: LocalDateRange,
+  preset: DateRangePreset,
+  now: Date,
+): boolean => {
+  const built = preset.build(now);
+  return built.from === range.from && built.to === range.to;
+};
+
+/**
+ * `Mon, 28 Sep 2026` — the heading a calendar day card carries.
+ *
+ * A bare `YYYY-MM-DD` is read as local midnight, never handed to `new Date`
+ * (which parses it as UTC midnight and prints the *previous* day for anyone
+ * west of Greenwich).
+ */
+export const formatDayHeading = (value: string | Date): string => {
+  const d = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? startOfLocalDayValue(value)
+    : new Date(value);
+  return d.toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};

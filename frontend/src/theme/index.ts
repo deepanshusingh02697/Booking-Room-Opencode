@@ -78,6 +78,18 @@ export const bookingStatusMeta: Record<BookingStatus, StatusMeta> = {
   },
 };
 
+/**
+ * The badge a maintenance *window* carries, as opposed to a room's own
+ * `MAINTENANCE` status (which means the same thing visually but describes a
+ * different fact). Added with the admin calendar, which shows windows inline
+ * with bookings and needs to tell them apart at a glance.
+ */
+export const maintenanceWindowMeta: StatusMeta = {
+  label: 'Maintenance',
+  glyph: '⚙',
+  className: 'bg-amber-100 text-amber-800',
+};
+
 export const copy = {
   wordmark: 'Room Meeting Intelligence',
   copyright: '© 2026 Room Meeting Intelligence',

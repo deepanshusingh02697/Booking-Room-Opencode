@@ -8,6 +8,7 @@ import {
   Resolver,
 } from 'type-graphql';
 import { AppContext } from '../../../common/context';
+import { DateRangeInput } from '../../analytics/dto/date-range-input';
 import { UserRole } from '../../auth/entities/employee';
 import { CreateMaintenanceInput } from '../dto/create-maintenance-input';
 import { MaintenanceType, toMaintenanceType } from '../dto/maintenance-type';
@@ -26,6 +27,27 @@ export class MaintenanceResolver {
     const windows = await this.maintenanceService.roomMaintenance(
       ctx.user,
       roomId,
+    );
+    return windows.map(toMaintenanceType);
+  }
+
+  /**
+   * Admin-only companion to `adminCalendar`: the maintenance windows of every
+   * room that overlap the same range, so the admin calendar can show what is
+   * blocking each room. Employees keep the per-room read (`roomMaintenance`).
+   */
+  @Query(() => [MaintenanceType])
+  @Authorized(UserRole.ADMIN)
+  async officeMaintenance(
+    @Arg('input', () => DateRangeInput) input: DateRangeInput,
+    @Ctx() ctx: AppContext,
+  ): Promise<MaintenanceType[]> {
+    const windows = await this.maintenanceService.officeMaintenance(
+      ctx.user,
+      {
+        startTime: input.startTime,
+        endTime: input.endTime,
+      },
     );
     return windows.map(toMaintenanceType);
   }

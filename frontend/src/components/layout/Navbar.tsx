@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { TopNav } from './TopNav';
+import { NotificationBell } from './NotificationBell';
 import { layout } from '../../theme';
 import { copy } from '../../theme';
 import { UserRole } from '../../types';
@@ -45,6 +46,7 @@ export const Navbar = () => {
       <div className="ml-auto flex min-w-0 items-center justify-end gap-3 whitespace-nowrap">
         {user && (
           <>
+            <NotificationBell />
             <span className="truncate text-[15px] font-semibold text-white">
               {user.firstName} {user.lastName}
             </span>

@@ -13,6 +13,8 @@ import {
   type RoomDetailsData,
   type RoomDetailsVars,
 } from '../../graphql/queries/rooms';
+import { RoomWaitlistPanel } from '../wait-list/RoomWaitlistPanel';
+import { MaintenancePanel } from '../maintenance/MaintenancePanel';
 import { roomStatusMeta, typeScale } from '../../theme';
 import { RoomStatus } from '../../types';
 
@@ -112,6 +114,18 @@ export const RoomDetailsPage = () => {
               emptyText="No equipment is assigned to this room yet."
             />
           </PanelCard>
+        </div>
+      )}
+
+      {room && !loading && !error && (
+        <div className="mt-5">
+          <RoomWaitlistPanel roomId={room.id} />
+        </div>
+      )}
+
+      {room && !loading && !error && (
+        <div className="mt-5">
+          <MaintenancePanel roomId={room.id} />
         </div>
       )}
 

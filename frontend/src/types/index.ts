@@ -103,3 +103,59 @@ export interface RoomUsage {
   cancellations: number;
   noShows: number;
 }
+
+/**
+ * One wait-list entry (FR-33): the signed-in employee queued for a room and a
+ * window. The server returns every entry it holds for the user, unfiltered, so
+ * the client splits them into waiting and passed itself.
+ */
+export interface WaitlistEntry {
+  id: number;
+  roomId: number;
+  employeeId: number;
+  startTime: string;
+  endTime: string;
+  createdAt: string;
+  room?: Room;
+  employee?: Employee;
+}
+
+/**
+ * One maintenance window (FR-41): a room is blocked from booking while a window
+ * runs, regardless of the room's own status. The server returns every window
+ * for a room, unfiltered, in `startTime ASC, id ASC` order, so the client
+ * splits them into scheduled and past itself.
+ */
+export interface MaintenanceWindow {
+  id: number;
+  roomId: number;
+  startTime: string;
+  endTime: string;
+  reason?: string;
+  createdAt?: string;
+  room?: Room;
+}
+
+export type NotificationType =
+  | 'notification:BOOKING_CREATED'
+  | 'notification:PARTICIPANT_ADDED'
+  | 'notification:PARTICIPANT_REMOVED'
+  | 'notification:CHECK_IN'
+  | 'notification:WAITLIST_CONVERTED';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  bookingId: number;
+  title: string;
+  roomName: string;
+  startTime: string;
+  endTime: string;
+  organizerName: string;
+  message: string;
+  timestamp: number;
+  read: boolean;
+  waitlistStartTime?: string;
+  waitlistEndTime?: string;
+  checkedInByName?: string;
+}

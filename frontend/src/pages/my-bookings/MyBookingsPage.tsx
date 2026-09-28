@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
-import { LuPlus, LuRefreshCw } from 'react-icons/lu';
+import { LuListOrdered, LuPlus, LuRefreshCw } from 'react-icons/lu';
 import { BookingRow } from '../../components/common/BookingRow';
 import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -14,11 +14,16 @@ import {
   MY_BOOKINGS_QUERY,
   type MyBookingsData,
 } from '../../graphql/queries/bookings';
+import {
+  MY_WAITLIST_QUERY,
+  type MyWaitlistData,
+} from '../../graphql/queries/waitlist';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { copy, layout } from '../../theme';
 import { BookingStatus, type Booking } from '../../types';
 import { isInProgress } from '../../utils/date';
 import { bookingRowNote, buildRecurrenceNotes } from '../../utils/recurrence';
+import { activeWaitlistEntries } from '../../utils/waitlist';
 
 const PAST_LIMIT = 10;
 
@@ -31,15 +36,24 @@ export const MyBookingsPage = () => {
   const navigate = useNavigate();
   const { data, loading, error, refetch } =
     useQuery<MyBookingsData>(MY_BOOKINGS_QUERY);
+  // Kept alongside the bookings so the header can show how many slots the user
+  // is queued for, and so the two lists are always read in the same pass.
+  const {
+    data: waitlistData,
+    loading: waitlistLoading,
+    refetch: refetchWaitlist,
+  } = useQuery<MyWaitlistData>(MY_WAITLIST_QUERY);
   const [showAllPast, setShowAllPast] = useState(false);
 
   // A CONFIRMED booking is flipped to NO_SHOW or COMPLETED by a node-cron tick
   // that emits no socket event (Phase 13 shipped no NO_SHOW_RELEASED type), so
-  // this list's status badges go stale on their own. Refetching when the tab
-  // regains focus is the cheap half of staying correct; the Refresh control
+  // this list's status badges go stale on their own. A wait-list entry converted
+  // by a cancellation has the same problem until Phase 23. Refetching when the
+  // tab regains focus is the cheap half of staying correct; the Refresh control
   // below is the explicit one.
   useRefetchOnFocus(() => {
     void refetch();
+    void refetchWaitlist();
   });
 
   const bookings = data?.myBookings ?? [];
@@ -63,6 +77,13 @@ export const MyBookingsPage = () => {
 
   const visiblePast = showAllPast ? past : past.slice(0, PAST_LIMIT);
 
+  // Only slots still ahead of the user count: an entry whose window has passed
+  // is history, not something to act on, and would only inflate the badge.
+  const waitlistCount = activeWaitlistEntries(
+    waitlistData?.myWaitlist ?? [],
+    now,
+  ).length;
+
   return (
     <div>
       <PageHeader
@@ -74,10 +95,20 @@ export const MyBookingsPage = () => {
             <Button
               variant="outline"
               icon={<LuRefreshCw aria-hidden />}
-              loading={loading}
-              onClick={() => void refetch()}
+              loading={loading || waitlistLoading}
+              onClick={() => {
+                void refetch();
+                void refetchWaitlist();
+              }}
             >
               Refresh
+            </Button>
+            <Button
+              variant="outline"
+              icon={<LuListOrdered aria-hidden />}
+              onClick={() => navigate('/wait-list')}
+            >
+              {waitlistCount > 0 ? `Wait-List (${waitlistCount})` : 'Wait-List'}
             </Button>
             <Button
               variant="primary"

@@ -19,6 +19,7 @@ import { roomStatusMeta } from '../../theme';
 import { RoomStatus, type Room } from '../../types';
 import { getGraphQLErrorMessage } from '../../utils/errors';
 import { EquipmentManager } from './EquipmentManager';
+import { MaintenanceManager } from '../maintenance/MaintenanceManager';
 import { RoomForm } from './RoomForm';
 
 const statusOptions = [
@@ -31,6 +32,7 @@ export const AdminRoomsPage = () => {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Room | null>(null);
   const [equipmentRoom, setEquipmentRoom] = useState<Room | null>(null);
+  const [maintenanceRoom, setMaintenanceRoom] = useState<Room | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const { data, loading, error, refetch } = useQuery<RoomsData, RoomsVars>(
@@ -126,6 +128,12 @@ export const AdminRoomsPage = () => {
                   >
                     Equipment
                   </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setMaintenanceRoom(room)}
+                  >
+                    Maintenance
+                  </Button>
                   <Button variant="outline" onClick={() => openEdit(room)}>
                     Edit
                   </Button>
@@ -147,6 +155,12 @@ export const AdminRoomsPage = () => {
         open={equipmentRoom !== null}
         room={equipmentRoom}
         onClose={() => setEquipmentRoom(null)}
+      />
+
+      <MaintenanceManager
+        open={maintenanceRoom !== null}
+        room={maintenanceRoom}
+        onClose={() => setMaintenanceRoom(null)}
       />
     </div>
   );

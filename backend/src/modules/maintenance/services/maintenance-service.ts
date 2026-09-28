@@ -1,5 +1,9 @@
 import { AuthUser } from '../../../common/context';
 import {
+  assertValidDateRange,
+  type DateRange,
+} from '../../../common/date-range';
+import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -24,6 +28,8 @@ export interface CreateMaintenanceData {
   endTime: Date;
   reason?: string;
 }
+
+export type MaintenanceDateRange = DateRange;
 
 const SERIALIZABLE_RETRY_ATTEMPTS = 3;
 const RETRYABLE_PG_CODES = new Set(['40001', '40P01']);
@@ -118,6 +124,24 @@ export class MaintenanceService {
     }
 
     return this.maintenanceRepository.findForRoom(room.id);
+  }
+
+  /**
+   * Every room's maintenance windows overlapping a range, admin-only: this is
+   * the admin calendar's companion read, since `adminCalendar` intentionally
+   * returns bookings only and `roomMaintenance` is scoped to one room. One
+   * query for the whole office instead of one per room.
+   */
+  async officeMaintenance(
+    user: AuthUser | null,
+    range: MaintenanceDateRange,
+  ): Promise<Maintenance[]> {
+    this.requireRole(user, UserRole.ADMIN);
+    assertValidDateRange(range);
+    return this.maintenanceRepository.findOverlapping(
+      range.startTime,
+      range.endTime,
+    );
   }
 
   private async createInTransaction(

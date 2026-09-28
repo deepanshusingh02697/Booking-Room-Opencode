@@ -34,10 +34,12 @@ import {
   localInputToGraphQLDate,
   nextHalfHourInput,
   toLocalDateValue,
+  toLocalInputValue,
 } from '../../utils/date';
-import { getGraphQLErrorMessage } from '../../utils/errors';
+import { getGraphQLErrorCode, getGraphQLErrorMessage } from '../../utils/errors';
 import { previewOccurrences, repeatUntilToGraphQLDate } from '../../utils/recurrence';
 import { BookingConfirmedPanel } from './BookingConfirmedPanel';
+import { JoinWaitlistControl } from './JoinWaitlistControl';
 import { ParticipantPicker } from './ParticipantPicker';
 import { RecurrenceSection } from './RecurrenceSection';
 
@@ -50,6 +52,25 @@ const parseLocal = (value: string): Date | null => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
+/**
+ * The `start`/`end` pair the Wait-List page's "Book this slot" control links
+ * with. Anything unusable — missing, unparseable, backwards, or already in the
+ * past — falls back to the default slot, so a hand-edited URL can only ever
+ * fall back, never leave the form in a state it cannot submit.
+ */
+const readSlotParams = (
+  params: URLSearchParams,
+): { startTime: string; endTime: string } | null => {
+  const rawStart = params.get('start');
+  const rawEnd = params.get('end');
+  if (!rawStart || !rawEnd) return null;
+  const start = parseLocal(rawStart);
+  const end = parseLocal(rawEnd);
+  if (!start || !end || end <= start) return null;
+  if (start.getTime() <= Date.now()) return null;
+  return { startTime: toLocalInputValue(start), endTime: toLocalInputValue(end) };
+};
+
 export const CreateBookingPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -59,8 +80,11 @@ export const CreateBookingPage = () => {
   // One clock reading feeds both ends of the default slot, so the default can
   // never drift to a non-60-minute window across a half-hour boundary.
   const [defaultSlot] = useState(() => defaultSlotInput());
-  const [startTime, setStartTime] = useState(defaultSlot.startTime);
-  const [endTime, setEndTime] = useState(defaultSlot.endTime);
+  const [initialSlot] = useState(
+    () => readSlotParams(searchParams) ?? defaultSlot,
+  );
+  const [startTime, setStartTime] = useState(initialSlot.startTime);
+  const [endTime, setEndTime] = useState(initialSlot.endTime);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [roomId, setRoomId] = useState<number | null>(() =>
@@ -78,7 +102,7 @@ export const CreateBookingPage = () => {
   // frequency switch deliberately does not move it, and the preview below says
   // exactly what the current pair of values produces.
   const [repeatUntil, setRepeatUntil] = useState(() =>
-    toLocalDateValue(addDaysInput(defaultSlot.startTime, 7)),
+    toLocalDateValue(addDaysInput(initialSlot.startTime, 7)),
   );
   const [created, setCreated] = useState<Booking | null>(null);
 
@@ -177,6 +201,16 @@ export const CreateBookingPage = () => {
     availabilityKnown &&
     selectedRoom.status === RoomStatus.AVAILABLE &&
     !freeRoomIds.has(selectedRoom.id);
+
+  // The wait-list answers the booking form: offered when the availability query
+  // says the room is not free, or when the booking engine has already refused
+  // the submit with CONFLICT. Both are advisory — the server has the last word
+  // on joining, and its refusal is shown verbatim.
+  const joinWaitlistOffered =
+    selectedRoom !== undefined &&
+    rangeIsUsable &&
+    (selectedRoomUnavailable ||
+      getGraphQLErrorCode(createError) === 'CONFLICT');
 
   const roomHint = (room: Room) => {
     if (room.status !== RoomStatus.AVAILABLE) {
@@ -421,6 +455,15 @@ export const CreateBookingPage = () => {
             <p role="alert" className="mt-6 text-sm text-red-600">
               {getGraphQLErrorMessage(createError)}
             </p>
+          )}
+
+          {selectedRoom && rangeIsUsable && (
+            <JoinWaitlistControl
+              room={selectedRoom}
+              startTime={startTime}
+              endTime={endTime}
+              offered={joinWaitlistOffered}
+            />
           )}
 
           <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-rule pt-6">

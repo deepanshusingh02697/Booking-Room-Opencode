@@ -3,30 +3,39 @@
 > Persistent AI handoff document. Update this file whenever the project state changes
 > so a new OpenCode session or model can continue development without re-discovering context.
 
-Last updated: 2026-09-27 (**Phase 18 — Recurring Meetings (Frontend) is DONE, so the frontend
-track is 5 of 10 phases in: 14 Rooms ✅, 15 Equipment ✅, 16 Core Booking ✅, 17 Manage Bookings &
-Cancellation ✅, 18 Recurring Meetings ✅. Next is Phase 19 — Check-in & No-show (Frontend).**
-Phase 18 needed **one small backend change** — human `en-GB`/UTC wording for the booking-conflict and
-maintenance messages, in a new `bookings/utils/conflict-message-time.ts`; `recurringBookingGroup`
-itself needed no contract change and the plan's "no N+1" check confirmed it stays lean. New frontend
-surface: the recurrence section on Create Booking, the recurring-series panel on Booking Details, the
-add/remove-participant modals the user pulled into this phase, and recurring notes on booking rows.
-Verified live: **64/64 API checks and 52/52 headless-Chrome UI checks**, DB left at its exact
-baseline, `typecheck` + `build` green. §9.7 records this session's decisions and the fixture rules.)
+Last updated: 2026-09-28 (**Phase 22 — Admin Calendar & Analytics (Frontend) is DONE, so the frontend
+track is 9 of 10 phases in: 14 Rooms ✅, 15 Equipment ✅, 16 Core Booking ✅, 17 Manage Bookings &
+Cancellation ✅, 18 Recurring Meetings ✅, 19 Check-in & No-show ✅, 20 Waitlist ✅, 21 Maintenance
+Management ✅, 22 Admin Calendar & Analytics ✅. Next is Phase 23 — Real-time Notifications
+(Frontend).**
+Phase 22 needed **one new backend read**: the calendar must show what is *blocking* a room, and the
+API had no office-wide window query, so `officeMaintenance(input: DateRangeInput!)` (admin-only,
+every window overlapping the range with its room name) was added — two reads per range instead of
+one per room — and `common/date-range.ts` was extracted so `AnalyticsService` and
+`MaintenanceService` share one `assertValidDateRange`. `adminCalendar` / `usageAnalytics` are
+unchanged. New frontend surfaces: the **admin Calendar** (one shared `RangePicker` of Today / This
+week / This month / Last 30 days + custom From/To, day-grouped agenda where a maintenance window is
+listed on *every* day it covers, clipped to that day) and the **Analytics report** (four tiles that
+are sums over one per-room table listing every room). Reached by link only — Calendar ↔ Analytics
+plus a "View Analytics" action on the dashboard's Room Usage panel; the sidebar is untouched.
+Verified live: **23/23 API checks and 62/62 headless-Chrome UI checks**, both read-only, DB left at
+its exact baseline, `typecheck` + `build` green. A subsequent read-only audit of Phases 1–22 found
+**one real bug** — Apollo's `skip` does not survive `refetch()`, so both pages were firing malformed
+`variables: {}` requests on focus and on Refresh whenever the range was inverted, failing silently and
+invisibly — now fixed with a `rangeValid` guard on a single `refetchRange` per page, plus three small
+doc/a11y/nit items. §9.11 records this session's decisions and §8.45
+the traps it found.
 Repo: `Book-MeetingRoom` (branch `main`)
-Working tree at session close: **uncommitted Phase 15 + Phase 16 + Phase 17 + Phase 18 changes**
-(Phase 14 is committed as `5fe0881`). Phase 18's new/changed files, on top of the earlier sets:
-backend new `modules/bookings/utils/conflict-message-time.ts` + `booking-service.ts` (message text
-only — **no migration, no schema change**); frontend new `utils/recurrence.ts` (client mirror of the
-server's generator), new `components/forms/DatePicker.tsx` and `components/common/DetailRow.tsx`,
-new `pages/create-booking/RecurrenceSection.tsx` and `BookingConfirmedPanel.tsx`, new
-`pages/booking-details/RecurringSeriesPanel.tsx` + `AddParticipantsModal.tsx` +
-`RemoveParticipantModal.tsx`, `recurrence`/`recurrenceId` on `Booking` plus
-`RecurrenceFrequency`/`RecurringBookingGroup` types, the `ADD_PARTICIPANTS_MUTATION` /
-`REMOVE_PARTICIPANT_MUTATION` / `RECURRING_BOOKING_GROUP_QUERY` documents, `ParticipantPicker`'s
-`excludeIds` prop, and the recurring note in `MyBookingsPage` / `MyMeetingsPage` /
-`EmployeeDashboard` (both meeting panels). The user commits manually (§8.11); the verification
-harnesses live in `/private/tmp/p18-*.mjs` (nothing test-related is committed, §8.7).
+Working tree at session close: **uncommitted Phase 20 + Phase 21 + Phase 22 changes** (Phases 14–19
+are committed, Phase 19 as `38f356e`). Phase 22's new files: backend `common/date-range.ts`;
+frontend `utils/date.ts` (the `LocalDateRange` helpers and the presets), `utils/calendar.ts` (the
+day grouping), `utils/analytics.ts` (the tile sums), `components/forms/RangePicker.tsx`,
+`pages/admin-calendar/AdminCalendarPage.tsx`, `pages/analytics/AnalyticsPage.tsx` and
+`pages/analytics/RoomUsageTable.tsx`, plus edits to `graphql/queries/maintenance.ts`,
+`theme/index.ts`, `pages/maintenance/MaintenanceRow.tsx`, `pages/dashboard/AdminDashboard.tsx` and
+`routes/index.tsx`. The user commits manually (§8.11); the verification harnesses live in
+`/private/tmp/p22-api.mjs` and `/private/tmp/p22-ui.mjs` (nothing test-related is committed,
+§8.7). Phase 20/21's uncommitted files are listed when last updated 2026-09-27/28.
 
 **UI design-system session (2026-09-26, AFTER the Phase 13 work — read this before any frontend phase):**
 the user supplied two design screenshots (login + register) and instructed that **the whole application must
@@ -66,8 +75,9 @@ Source-of-truth doc (note: `doc/`):
 Phase structure (restructured 2026-09-25): Phases 1–3 foundation/auth (done), then a
 **backend track** (Phases 4–13, one feature per phase — **CLOSED/DONE as of 2026-09-26**), then a
 **frontend track** (Phases 14–23, same feature order — **14 Rooms, 15 Equipment, 16 Core Booking,
-17 Manage Bookings & Cancellation and 18 Recurring Meetings DONE as of 2026-09-27, next is Phase 19
-Check-in & No-show**), then hardening (Phase 24) and docs (Phase 25).
+17 Manage Bookings & Cancellation, 18 Recurring Meetings, 19 Check-in & No-show, 20 Waitlist,
+21 Maintenance Management and 22 Admin Calendar & Analytics DONE as of 2026-09-28, next is
+Phase 23 Real-time Notifications**), then hardening (Phase 24) and docs (Phase 25).
 
 ## 2. Repo Layout
 
@@ -142,7 +152,7 @@ Demo credentials (from seed):
 - Employee: `aarav@mri.com` / `Employee@123` (also priya/rohan/sara @mri.com)
 - Admin: `admin@gmail.com` / `Admin@123`
 
-## 5. Current Status (verified 2026-09-27)
+## 5. Current Status (verified 2026-09-28)
 
 ### UI Design System + Auth Screen (frontend baseline): ✅ DONE (2026-09-26, uncommitted)
 - Rebuilt `/login` (both modes) from the two user-supplied design screenshots. Verified by pixel-diffing
@@ -508,8 +518,9 @@ Demo credentials (from seed):
 - **Improvised surfaces (§7.2.11), user-authorised (§9.6), not pixel-referenced:** `BookingRow`'s row
   layout, the details page's three-card composition, the cancel modal's bullet list and the My Bookings /
   My Meetings panel pairs. Revisit if the user supplies designs. **Not built here, by decision:** recurrence
-  and participant add/remove (**both built in Phase 18**), the check-in button (Phase 19 — the details page
-  shows check-in **read-only**), and the waitlist indicator (Phase 20).
+  and participant add/remove (**both built in Phase 18**), the check-in button (**built in Phase 19** — the
+  details page shows check-in **read-only**), and the waitlist indicator (**built in Phase 20**, as a Room
+  Details panel + a My Bookings count rather than a per-row note, §9.9).
 
 ### Phase 18 — Recurring Meetings (Frontend): ✅ BUILT (2026-09-27)
 - **Backend: no contract change, one message-text change.** The plan's "verify `recurringBookingGroup` needs
@@ -561,7 +572,7 @@ Demo credentials (from seed):
   cadence cards + preview, the series panel, both participant modals, `DatePicker`, `DetailRow` and the
   `BookingConfirmedPanel` composition.
 
-### Phase 19 — Check-in & No-show (Frontend): ✅ BUILT (2026-09-27, uncommitted)
+### Phase 19 — Check-in & No-show (Frontend): ✅ BUILT + COMMITTED (2026-09-27, `38f356e`)
 - **One backend contract addition, and it is the only schema change in the phase.** `BookingType` gained
   `checkInWindowOpensAt` and `checkInWindowClosesAt`, both non-null, mapped in `toBookingType` as **plain
   scalars** — `booking.startTime` and `checkInWindowEnd(booking.startTime)`. No field resolver, no extra query,
@@ -638,6 +649,272 @@ Demo credentials (from seed):
   gate.
 - **Improvised surfaces (§7.2.11), user-authorised (§9.8), not pixel-referenced:** the Check In button's
   placement in the existing header action group, the one-line window explanation, and the status/alert styling.
+
+### Phase 20 — Waitlist (Frontend): ✅ BUILT (2026-09-27, uncommitted)
+- **No backend change at all.** Phase 10's API is consumed as-is: `myWaitlist`, `joinWaitlist(input:
+  { roomId, startTime, endTime })` and `leaveWaitlist(entryId: Int!): Boolean!`. No migration, no new type, no
+  new field. Everything below is client work.
+- **The wait-list's only entry point is Create Booking** (user decision §9.9). `JoinWaitlistControl` renders
+  under the form's own messages and only when the page decides the wait-list is a real answer: either the
+  availability query already says the room is not free for the window (`selectedRoomUnavailable`), or
+  `createBooking` has just been refused with `extensions.code === 'CONFLICT'`. The second condition is what
+  covers a failed availability query — there the client knows nothing, and the server's own refusal is the
+  first solid evidence. **The copy never states *why* the slot cannot be booked**, because the client cannot
+  tell "already booked" from "under maintenance" (§8.26): it says *"Want Vega 3.02 at this time? Join the
+  wait-list…"* and lets the server's own message appear verbatim in a `role="alert"` if the join is refused.
+- **Joining is one click, no modal; leaving confirms.** Same rule as the check-in decision (§9.8): a wait-list
+  entry grants nothing and is reversible from two places, whereas leaving hands the slot to the next person and
+  cannot be undone by the user, so it goes through `LeaveWaitlistModal` (title *Leave this wait-list entry*,
+  outline *Keep waiting* / danger *Leave wait-list*), mirroring `CancelBookingModal`'s shape.
+- **A successful join swaps the button for a durable state rather than a flash.** The control queries
+  `myWaitlist` and, if the user already holds an entry overlapping the form's window, renders
+  *"You are on the wait-list for this slot in Vega 3.02."* with a link to `/wait-list` in a `role="status"`.
+  That state is the server's own list, so it also blocks the second join the server would refuse with
+  `CONFLICT` — and it survives a remount, which a flash message would not. Verified at the wire: one click,
+  exactly one row in `waitlist_entries`, and the button gone.
+- **`myWaitlist` returns every entry the caller holds, unfiltered and in `createdAt ASC, id ASC` order, so the
+  client owns the now-line** (§8.41). `/wait-list` splits it into `Waiting` / `Passed` with one clock read per
+  render, exactly like My Bookings, and the `Passed` list is capped at 10 with *Show all* / *Show less*. An
+  entry stays *waiting* until its window **ends**, so a slot running right now is still listed, marked *In
+  progress*. A passed row offers neither Leave (the window is over) nor *Book this slot*.
+- **My Bookings gets a count and a link, not a per-row note** (§9.9): a `Wait-List (N)` outline button in the
+  existing header action group, where `N` counts **active** entries only, and the button drops back to plain
+  `Wait-List` at zero. The header also refetches `myWaitlist` on focus and on Refresh. The booking list
+  fragment is untouched.
+- **Room Details gets a Wait-List panel, scoped to the caller and to that room** — active entries for this
+  room with Leave, and an empty line when there are none. It deliberately does **not** show passed entries (the
+  Wait-List page is the history) and does **not** offer Join (only the form knows the window). The panel lives
+  in `pages/wait-list/RoomWaitlistPanel.tsx` so `RoomDetailsPage` stays a composition of cards.
+- **"Book this slot" is a deep link, and the form learned to read it.** `utils/waitlist.ts` builds
+  `/create-booking?room=…&start=…&end=…` (`URLSearchParams` does the encoding); `CreateBookingPage` reads the
+  pair through `readSlotParams`, which **falls back to the default slot for anything unusable** — missing,
+  unparseable, backwards or already in the past — so a hand-edited URL can only fall back, never leave the form
+  in a state it cannot submit. `?room=` behaves as it always did. The repeat-until default is now derived from
+  the *initial* slot, not from the default slot, so a deep-linked series still previews a week ahead.
+- **`WaitlistRow` is a new list row, and it is not `BookingRow`.** §8.30 says a whole-row link covers the
+  action slot, which is why a booking row may only carry a badge; this row carries two real controls, so only
+  the **room name** is the link and the row stays a `ListRow`. The shared row keeps a wait-list entry looking
+  the same on `/wait-list` and on a room page.
+- **No queue size or position is rendered anywhere** (§8.43). `myWaitlist` exposes neither, and FR-33 only ever
+  promised the current user's own entries, so a number in the UI would be invented. The conversion copy states
+  what the server will actually do — *"the booking is made for you automatically as soon as the room is
+  released"* — and does **not** promise the window that was queued, because the conversion books the
+  **released** slot (verified: a waiter who queued 08:00–11:00 received a 09:00–10:00 booking).
+- **Conversion is picked up by a re-read, not pushed.** Phase 10 emits `WAITLIST_CONVERTED`, but the frontend
+  Socket.io client is Phase 23, so `useRefetchOnFocus` plus the page's Refresh are wired into `/wait-list`,
+  `RoomWaitlistPanel` and My Bookings — the same mechanism, and for the same reason, as Phase 19's
+  cron-driven status drift (§8.17, §8.37).
+- **New: `frontend/src/utils/waitlist.ts`** holds the three derivations the four new surfaces share — the
+  half-open `windowsOverlap`, the active/passed split, and the room+window "entry I already hold" test — so
+  Create Booking, Room Details, My Bookings and the Wait-List page cannot drift apart. The overlap test
+  mirrors the server's SQL (`startTime < :endTime AND endTime > :startTime`), so it inherits §8.34's
+  "change both in the same commit" duty (§8.42).
+- **Verified live: 56/56 API checks** (`/private/tmp/p20-api.mjs`) — `myWaitlist` scoped to the caller and
+  including a *past* baseline entry, `createdAt ASC, id ASC` ordering, `room`/`employee` resolving on a list
+  row, every `joinWaitlist` guard (duplicate `CONFLICT` with the verbatim message, free slot, past start,
+  end-before-start, non-`AVAILABLE` room, maintenance window on an `AVAILABLE` room, unknown room, admin
+  `FORBIDDEN`, anonymous `UNAUTHENTICATED`), the whole `leaveWaitlist` matrix (own entry removed, someone
+  else's and a baseline entry `FORBIDDEN`, re-leave and unknown id `NOT_FOUND`), and conversion: the first
+  waiter by `createdAt` receives a `CONFIRMED` **Waitlisted booking** on the released room and window, their
+  entry is consumed, the second waiter is untouched, and the next release drains the queue to them.
+  **and 67/67 headless-Chrome UI checks** (`/private/tmp/p20-ui.mjs`) — the deep link prefilling room, start and
+  end to the minute (rendered by the *browser's* own timezone), the advisory "not free" warning, one-click join
+  with no dialog, the durable queued state, **no** join offer for a free room/window, the submit refusal shown
+  verbatim, both Wait-List panels with the right rows in the right one, the *Book this slot* href, Leave
+  confirmed and then kept-then-confirmed, the "Left the wait-list for …" status, the badge appearing as
+  `Wait-List (1)` and falling back to `Wait-List` after the conversion, the conversion appearing in the waiter's
+  Upcoming list, Room Details' panel (including a leave from it on the entry that empties the panel),
+  Refresh and focus refetch **counted on the wire**, and a 390 px pass with
+  zero console errors.
+- **DB left at its exact session-start baseline** (42 bookings / 72 participants / 1 check-in / 2 waitlist /
+  2 maintenance / 6 rooms / 7 equipment / 10 room_equipment / 6 employees, max booking id 280), with the two
+  baseline wait-list entries (1 and 28) never written to. `npm run typecheck` and `npm run build` pass in the
+  frontend workspace; the backend was not touched. There is no lint script in this repo (§8.7).
+- **Improvised surfaces (§7.2.11), user-authorised (§9.9), not pixel-referenced:** the whole wait-list UI —
+  the two-panel page, the room panel, the join control and the leave dialog all reuse `PageHeader`,
+  `PanelCard`, `ListRow`, `Button`, `Modal` and the §7.2 tokens; nothing new was measured against a reference.
+- **One harness bug worth carrying:** asserting a panel's contents with
+  `d.querySelector(':scope > div > h2')` silently matches the panel's *header row*, not the card, so every row
+  assertion is satisfied by the title and subtitle alone. Walk up from the `h2` to the ancestor that also holds
+  the list (three wrappers for `PanelCard`), and assert against **all** `role="status"` regions — Create Booking
+  has a second one (the "not free" warning) that a `querySelector` picks up first.
+- **A status line must not live inside the branch that the action empties — and the harness must cover that
+  one case (Phase 20 cleanup).** `RoomWaitlistPanel` rendered its "Left the wait-list for …" confirmation
+  inside the `waiting.length > 0` branch, so leaving a user's **last** entry for a room removed the rows and
+  the confirmation with them: the one action the panel exists for gave no feedback. `WaitlistPage` had it
+  right (the line sits outside both panels), which is why the copy-paste into the room panel lost it. Fixed by
+  hoisting the line above the conditional; the two surfaces must be read together, not merged.
+  **It survived 59/59 because the harness only ever left from `/wait-list`** — section E checked the room
+  panel's *empty* state and the absence of a Join control, never a leave from it. Generalisable rule: **for any
+  "remove the last item" action, assert the confirmation on the screen that becomes empty**, and prove the
+  check is not vacuous by running it once against the unfixed code (here: 65 passed / **2 failed**, with the
+  panel text showing the missing line, versus 67/0 after the fix).
+
+### Phase 21 — Maintenance Management (Frontend): ✅ BUILT (2026-09-28, uncommitted)
+- **No backend change at all.** Phase 11's surface is consumed as-is: `roomMaintenance(roomId)` (every
+  authenticated role), `createMaintenance` and `deleteMaintenance` (admin-only via `@Authorized(ADMIN)` **and**
+  the service's own re-check, §8.14's rule). The backend's existing rules hold client-side where sensible and
+  are left authoritative where the server is the source (§8.8): no status gate on create, past windows allowed,
+  adjacency (`end === start` of an existing window) allowed, `reason` optional and blank-insensitive.
+- **Admin surface is a per-room button → wide manager modal** (user decision §9.10), mirroring `EquipmentManager`
+  so Admin Rooms keeps editing in place. One `Maintenance` outline button per card opens
+  `MaintenanceManager` (a `size="wide"` `Modal`) for that room with the add form on top and the window lists
+  below, split client-side by `splitMaintenanceWindows` (a single clock read per render, §8.28) into
+  `Scheduled (N)` — active + upcoming, start ascending, each row with **Remove** — and `Past (N)` — most recent
+  first, capped at **10** with *Showing the 10 most recent of N passed windows* and *Show all N* / *Show less*
+  gated on `past.length > PAST_LIMIT`. Both lists' shared `MaintenanceRow` proves a window looks the same in the
+  manager and the room panel.
+- **Create is a real form, not a prompt.** Start/End `DateTimePicker`s pre-filled from one
+  `defaultSlotInput()` read (never drifting across a half-hour boundary, §8.28), an optional Reason of up to
+  1000 chars, and a submit that refetches `roomMaintenance` and resets the slot after success. Client-side
+  validation mirrors `RoomForm`: required times, `start < end` → *"Maintenance start time must be before end
+  time."*, and a reason of only spaces → *"Maintenance reason cannot be empty."* — but the server's rules win on
+  overlap because the create runs in a `SERIALIZABLE` transaction with optimistic retry (§8.9): a window that
+  clashes with a booking or another window comes back as the server's verbatim `ConflictError` in a
+  `role="alert"`, and the empty-reason case is proven with the wildcard (API checks).
+- **Delete confirms, because it hands the time back to the booking engine** (user decision §9.10). A scheduled
+  row's **Remove** opens `DeleteMaintenanceModal` (title *Remove maintenance window*, outline *Keep window* /
+  danger *Remove window*), mirroring `CancelBookingModal`/`LeaveWaitlistModal`: it names the window, explains the
+  room becomes bookable again and that existing bookings are never touched. The delete returns a `Boolean`, so
+  the list is re-read through `refetchQueries` (§8.40). It never disables Confirm on client-side time maths — an
+  admin may legitimately delete a running window.
+- **Room Details gets a Maintenance panel for every authenticated role** (user decision §9.10) — *scheduled*
+  windows only (active + upcoming, soonest first), with **In progress** appended to the running window's reason,
+  and the empty state *No maintenance is scheduled for this room.* Past history deliberately stays admin-side.
+  It refetches on window focus via `useRefetchOnFocus`, like the wait-list surfaces. This is where an employee
+  learns *why* a slot is refused, since a window on an `AVAILABLE` room never shows in the room's status badge.
+- **Create Booking needed no change (user decision §9.10).** A maintenance window already lands in the backend's
+  `findBusyRoomIds` alongside confirmed bookings, so the availability query already excludes the room for the
+  window and the server already refuses a submit. Both were proven to a visible end on the form: the room hint
+  turns *Unavailable* with *"…is not free for the selected time — submitting will be rejected by the booking
+  engine."* and the submit shows the engine's verbatim *Room "Orion 1.04" is under maintenance during the
+  requested time, …*. No new client availability logic was added; Phase 20's copy rule that the client does not
+  distinguish *booked* from *maintained* therefore survives untouched.
+- **New: `frontend/src/utils/maintenance.ts`** holds `splitMaintenanceWindows` (scheduled vs past in one
+  clock read, scheduled ascending / past descending) and `isActiveMaintenance` (the `startTime <= now < endTime`
+  half-open test), shared by the manager and the room panel so the split cannot drift. It mirrors the row split
+  Postgres uses for past bookings (§8.31-style) and is the only now-dependent logic Phase 21 adds.
+- **Verified live: 33/33 API checks** (`/private/tmp/p21-api.mjs`) — the read surface (anonymous
+  `UNAUTHENTICATED`, employee OK, `NOT_FOUND` for an unknown room, `id ASC` order), the guards (employee
+  `FORBIDDEN` and anonymous `UNAUTHENTICATED` on both mutations), both verbatim `VALIDATION` messages, the rules
+  (no status gate even on the `DISABLED` Polaris, a past window accepted, adjacency `end === start` accepted,
+  `CONFLICT` naming the booking title + times and a maintenance `CONFLICT` carrying the blocking window's reason,
+  `reason` still stored as `NULL` when omitted), and the delete chain (removed window frees the slot to a fresh
+  booking, re-delete `NOT_FOUND`). **and 45/45 headless-Chrome UI checks** (`/private/tmp/p21-ui.mjs`) — the six
+  card buttons, the Polaris manager showing the active row and the Nova manager the passed one, the prefilled
+  default slot, the two inline validations with nothing written, a create that re-lists and resets the form
+  (verified to the DB minute and to the exact UTC instants the browser submitted), Keep-then-Confirm delete,
+  the overlap `CONFLICT` message verbatim in the dialog, the 10-of-12 past cap with *Show all* / *Show less*,
+  the employee room panel with *In progress* plus its focus refetch **counted on the wire**, the empty room
+  state, a maintenance window making Create Booking show *Unavailable* and refuse verbatim, and a 390 px pass
+  with zero console errors.
+- **DB left at its exact session-start baseline** (42 bookings / 72 participants / 1 check-in / 2 waitlist /
+  2 maintenance / 6 rooms / 7 equipment / 10 room_equipment / 6 employees), with the two baseline maintenance
+  windows (ids 1 and 2) never written to. `npm run typecheck` and `npm run build` pass in the frontend
+  workspace; the backend was not touched. There is no lint script in this repo (§8.7).
+- **Improvised surfaces (§7.2.11), user-authorised (§9.10), not pixel-referenced:** the whole maintenance
+  surface — the card button, the manager modal, the row and the room panel — reuses `Modal`, `PanelCard`,
+  `ListRow`, `Button`, `DateTimePicker`, `Input` and the §7.2 tokens; nothing new was measured against a
+  reference.
+- **A harness trap worth carrying: `maintenance.id` has no DB default outside TypeORM's `save` — a raw
+  `INSERT INTO maintenance` that omits `id` comes back with a **NULL** key (§8.44).** Fixtures must supply the
+  id explicitly (`coalesce(max(id),0)+1`) or cleanup-by-reason silently leaks a NULL-keyed row.
+
+### Phase 22 — Admin Calendar & Analytics (Frontend): ✅ BUILT (2026-09-28, uncommitted)
+- **One new backend read, approved by the user: `officeMaintenance(input: DateRangeInput!)`** (admin-only,
+  `@Authorized(ADMIN)` **and** the service's own re-check, §8.14). The calendar has to show what is *blocking* a
+  room, and Phase 12 shipped only `roomMaintenance(roomId)` — one read per room. `MaintenanceRepository.
+  findOverlapping` + `MaintenanceService.officeMaintenance` return every window touching the range with its
+  `room { id name }` resolved, ordered `startTime ASC, id ASC` to match the booking query beside it, so the page
+  is **two reads for the whole range**. No migration, no schema change, no alteration to `adminCalendar` or
+  `usageAnalytics`.
+- **`common/date-range.ts` now owns the range contract** (`DateRange`, `assertValidDateRange`). `AnalyticsService`
+  had a private duplicate; it now imports the shared one, so both admin reads refuse an inverted or empty range
+  with the *same* message and the *same* `VALIDATION_ERROR` code. The API harness pins that wording against all
+  three queries so the extraction cannot drift from the shipped behaviour.
+- **Calendar is a day-grouped agenda, not a grid** (user decision §9.11) — improvised on the §7.1/§7.2
+  primitives, no screenshots. One `PanelCard` per local day with activity (empty days are dropped so an empty
+  week is a single `EmptyState`), earliest day first, rows inside a day sorted by start with a booking winning a
+  tie. A booking is filed under the day it **starts**; a maintenance window under **every day it covers**,
+  clipped to that day, so a week-long block is visible on each day it blocks instead of only on the day it began.
+  Days with activity are capped at 10 with *Showing the 10 earliest of N days* and *Show all N* / *Show less*
+  (the Phase 20/21 cap pattern).
+- **The maintenance row is the shared `MaintenanceRow`** (Phase 21) with a new `timeLabel` prop and a room name,
+  not a second window component: `All day` when the window covers the whole day, otherwise the hours it occupies
+  on that day, an end at the day's boundary written as `24:00` rather than a confusing `00:00`, and *Runs …*
+  appended whenever the window spans days so the clipping loses nothing. *In progress* is claimed **only on
+  today** — a card for tomorrow must not say a window is running now.
+- **One `RangePicker` serves both pages** (user decision §9.11): Today / This week / This month / Last 30 days
+  plus a custom From/To pair, **Monday-first**, defaulting to this week, built from the single `new Date()` the
+  page reads (both bounds from one reading, §8.28). The From/To pair is the authority — a preset writes into it,
+  so the fields always show the range in effect — and there is **no Apply step**. The end is the *exclusive*
+  start of the next day, because both queries match on half-open overlap (§8.16). An inverted range is reported
+  inline and **no query is sent**; `DatePicker`'s `max`/`min` keep the pair valid from the keyboard too. The
+  control takes no `loading` prop: the pages' own Refresh button and `aria-busy` already say a read is in flight.
+- **Analytics is four tiles over one table** (user decision §9.11): Total Bookings, Cancellations, No-shows,
+  Rooms With Usage. `usageAnalytics` returns **one row per room, every room, idle rooms as 0/0/0**, so the tiles
+  are sums over the complete row set — no second query, and an idle room reads as unused rather than missing. The
+  table is the app's first: improvised (§7.2.11) from the same pieces as everything else (faint caption heading,
+  `rule` separators, right-aligned tabular numerals, `overflow-x-auto` so it scrolls inside its card on a
+  phone), each room name linking to that room.
+- **A range change keeps the last answer on screen** and marks the region `aria-busy`, because blanking the tiles
+  to `0` for the few hundred milliseconds in between reads as a real result. (The harness asserts it.)
+- **Reach Analytics by link only** (user decision §9.11): Calendar ↔ Analytics header buttons, and a
+  *View Analytics* action on the dashboard's Room Usage panel. The sidebar is untouched — Dashboard / Calendar /
+  Rooms / Equipment — because §2.1.1 fixes the sidebar, so an Analytics item would be a requirements change, not
+  a design choice. The dashboard edit is the only change to a page Phase 22 did not otherwise touch.
+- **Verified live: 23/23 API checks** (`/private/tmp/p22-api.mjs`) — the guards (anonymous `UNAUTHENTICATED`,
+  employee `FORBIDDEN`, both verbatim), all three queries' reversed *and* empty range refusals, the office-wide
+  result compared against SQL, room names resolved, the `startTime, id` order, the half-open boundary rule proved
+  on both sides of a real window, and a regression sweep proving `usageAnalytics` still returns every room and
+  that the per-room counts match SQL and the calendar's booking count. **and 62/62 headless-Chrome UI checks**
+  (`/private/tmp/p22-ui.mjs`) — the employee guard on both routes, the default this-week range verified down to
+  the exact instants on the wire, one read per range (**not** one per room), day cards in date order, the
+  multi-day baseline window on every covering day with its clipped label and room, *In progress* on today only,
+  the booking row's link, every preset re-reading once, the custom range with no Apply step, the From-max/To-min
+  guard, the inverted range refused with **zero requests on the wire**, both cross-links and the dashboard link
+  landing on the right page, the four tiles each reconciling with its table column, refetch on focus counted on
+  the wire, a 390 px pass with the table scrolling inside its card, and zero console errors.
+- **DB left at its exact session-start baseline** (42 bookings / 72 participants / 1 check-in / 2 waitlist /
+  2 maintenance / 6 rooms / 7 equipment / 10 room_equipment / 6 employees). Both harnesses are read-only — this
+  phase had no fixture to create, because the two baseline windows already cover a multi-day case. `npm run
+  typecheck` (both workspaces) and `npm run build` pass. There is no lint script in this repo (§8.7).
+- **A cleanup pass fixed three defects the first pass surfaced** (each re-checked in the same harness):
+  `formatDayHeading` handed a bare `YYYY-MM-DD` to `new Date`, which parses it as **UTC** midnight and prints the
+  *previous* day for anyone west of Greenwich (§8.45); `RoomUsageTable` claimed the server "already ordered by
+  room name" when `findUsageByRoom` has no `ORDER BY` (now sorted client-side rather than changing a Phase 12
+  query); and the tiles blanked to `0` mid-refetch.
+- **A later read-only audit of Phases 1–22 found one real bug and three small items, all now fixed:**
+  - **[BUG] `skip` does not survive `refetch()`.** Both pages refuse an inverted range by setting
+    `skip: !input`, but Apollo's `skip` only parks a query in the `standby` fetch policy — and
+    `ObservableQuery.refetch()` overrides that to `network-only` (`refetch` → `reobserveAsConcast`,
+    `NetworkStatus.refetch` → disposable Concast over `{...this.options, fetchPolicy: 'network-only'}`).
+    Because `variables` is `undefined` for an inverted range, Apollo sent `{}`, so every focus event and
+    every Refresh click while the range was invalid put a malformed request on the wire that the server
+    refused with `BAD_USER_INPUT` (*Variable "$input" of required type "DateRangeInput!" was not
+    provided*). **It was invisible on screen** — the `!rangeValid` branch renders above the controls, and
+    there were 0 console errors — so only a network-level probe caught it. Both pages now route all three
+    triggers (focus, Refresh, `onRetry`) through a single `refetchRange` that returns early when
+    `!rangeValid`. No change to `useRefetchOnFocus` was needed: it holds the callback in a ref and reads
+    it at event time, so the guard is always current. Two harness assertions pin this
+    (*regaining focus while the range is inverted sends nothing*; *pressing Refresh while the range is
+    inverted sends nothing*).
+  - **[DOC] `DateRange` was documented as a "closed" range.** It is half-open, `[start, end)`, which is what
+    the overlap tests actually do. Corrected in `common/date-range.ts`.
+  - **[A11Y] The range presets conveyed selection by fill colour alone.** Added `aria-pressed`, matching
+    `AuthField`'s reveal toggle; the codebase already had the convention (`AuthTabs` uses `aria-selected`).
+  - **[NIT] `RoomUsageTable`'s JSX body sat unindented inside its `return (`.** Reindented.
+  - **Deliberately left alone, with the user asked first:** the per-window room lookup is an N+1
+    (`MaintenanceRoomFieldResolver` calls `RoomService.getById` once per window) but it is already
+    documented as accepted in `graphql/queries/maintenance.ts`, is bounded by windows-in-range (2 today), and
+    matches the existing `roomMaintenance` query. Note for the future: adding
+    `relations: { room: true }` to `findOverlapping` would **not** fix it, because a `@FieldResolver` always
+    takes precedence over the plain property. The duplicate inverted-range message (field-level plus page
+    `ErrorState`) was also reviewed and kept — each does a different job.
+  - **A known coverage gap, not a defect:** the *Show all N* / *Show less* control at `DAY_LIMIT = 10` cannot
+    be reached with the current seed data — *This month* yields exactly 10 day cards, so
+    `days.length > DAY_LIMIT` is never true. Exercising it needs a fixture, which would write to the DB, so
+    it stays uncovered rather than being faked.
 
 - Workspaces, Turbo, shared tsconfig, typed env, error classes/codes, logger
 - Express + cors + cookie-parser; Apollo + TypeGraphQL schema at `/graphql`
@@ -1027,7 +1304,7 @@ Demo credentials (from seed):
   (**FORBIDDEN for anyone else, admins included** — strict FR-36, same call as the Phase 9 check-in
   decision); returns `false` → mapped to CONFLICT only if the delete affected 0 rows.
 - **`myWaitlist`** — any authenticated user, **all** their entries in `createdAt ASC, id ASC`
-  (FR-37 literal; no time filtering — the Phase 20 UI can filter).
+  (FR-37 literal; no time filtering — Phase 20's UI does the waiting/passed split client-side, §8.41).
 - **FR-33 FIFO conversion (real now, both stubs replaced).** `onBookingCancelled(booking,
   createBooking)` returns the created `Booking | null`:
   candidates = entries in the same room **overlapping the freed slot**, `createdAt ASC, id ASC`;
@@ -1187,8 +1464,10 @@ Demo credentials (from seed):
   backend` → "No migrations to run". `npm run typecheck` + `npm run build` pass both workspaces.
 - **Notes for Phase 13:** swapping the five `NotificationService` logger stubs
   for Socket.io emissions was the only backend work left — **DONE, see the Phase 13 section below.** The
-  Phase 22 frontend will need `adminCalendar` + `roomMaintenance` composed to draw maintenance blocks on
-  the admin calendar, since `adminCalendar` intentionally returns bookings only.
+  Phase 22 frontend will need `adminCalendar` + a room-wide maintenance read to draw maintenance blocks on
+  the admin calendar, since `adminCalendar` intentionally returns bookings only. **DONE in Phase 22:** the
+  composed pair is `adminCalendar` + the new `officeMaintenance(input: DateRangeInput!)` (one read for the
+  whole office rather than one per room) — see the Phase 22 section above.
 
 ### Phase 13 — Real-time Notifications (Backend): ✅ DONE (verified 2026-09-26) — BACKEND TRACK COMPLETE
 - **User-approved decisions (asked at kickoff per §9 — see §9 "Decided 2026-09-26 (Phase 13 session)").**
@@ -1619,14 +1898,20 @@ layout (§9 "Next").
 > `Upcoming Meetings`), both `EquipmentManager` sections, and the `/equipment` catalog. A populated panel
 > therefore renders rows, not just a heading. New list screens should use `ListRow` too.
 >
-> **Still improvising without a pixel reference (per §9.4/§9.5/§9.6/§9.7, all user-authorised):** the equipment
-> chips, the `RoomFilters` checkbox tiles, the `EquipmentManager` layout and the `/equipment` catalog page
-> (Phase 15), plus the room selector cards, the participant chips, the confirmation panel and the whole
+> **Still improvising without a pixel reference (per §9.4/§9.5/§9.6/§9.7/§9.8/§9.9, all user-authorised):** the
+> equipment chips, the `RoomFilters` checkbox tiles, the `EquipmentManager` layout and the `/equipment` catalog
+> page (Phase 15), plus the room selector cards, the participant chips, the confirmation panel and the whole
 > Create Booking form layout (Phase 16), plus `BookingRow`, the details page's three-card composition, the
 > cancel modal's bullet list and the My Bookings / My Meetings panel pairs (Phase 17), plus the recurrence
 > section's cadence cards and live preview, `DatePicker`, `DetailRow`, the series panel, both participant
-> modals and the confirmation panel's series list (Phase 18). No other exclusion in this section is live
-> right now; the next un-designed surface is Phase 19's check-in button on the details page.
+> modals and the confirmation panel's series list (Phase 18), plus the Check In button and the window rule line
+> (Phase 19), plus the whole wait-list UI — `WaitlistRow`, the `/wait-list` panel pair, the room panel, the
+> join control and the leave dialog (Phase 20), plus the whole maintenance UI — the card button, the wide
+> manager modal, the window row and the room panel with its *In progress* note (Phase 21, §9.10), plus the
+> whole admin calendar and analytics UI — the shared `RangePicker`, the day-grouped agenda, the clipped
+> multi-day window row and the first table (Phase 22, §9.11). No other exclusion in this section is live
+> right now; the next un-designed surface is Phase 23's notification bell and notification list, unless the
+> user supplies a reference for it first.
 
 ## 8. Key Gotchas / Team Memory
 
@@ -1895,8 +2180,61 @@ layout (§9 "Next").
     the app posts to the Vite dev proxy, so the real URL is `/graphql` on the **frontend** origin. Match
     `endsWith('/graphql')`. A zero count is also a legitimately failing assertion here (not a vacuous pass),
     but it distinguishes "the feature is broken" from "the harness is blind" only once you know the counter
-    works — so pair the mechanism check with a positive control (e.g. assert the *initial* page load is
-    counted) before trusting a `0`.
+     works — so pair the mechanism check with a positive control (e.g. assert the *initial* page load is
+     counted) before trusting a `0`.
+40. **A mutation that returns a scalar leaves the Apollo cache with nothing to update (Phase 20).**
+     `leaveWaitlist` returns `Boolean!`, not the removed entry, so there is no normalised entity to write and
+     **no list can be updated by the mutation's own response** — every caller has to pass
+     `refetchQueries: [{ query: MY_WAITLIST_QUERY }]`. The same applies to `joinWaitlist`, whose response is a
+     single entry: writing it to the cache does *not* append it to the `myWaitlist` list field. This is the same
+     family as §8.19: anything the page needs to see again has to be re-read, and "the mutation returned the
+     new state" is not that.
+41. **A list endpoint with no time filter hands the now-line to the client — and then every derived count must
+     use the same rule (Phase 20).** `myWaitlist` returns **all** of the caller's entries, unfiltered, in
+     `createdAt ASC, id ASC` order, so `/wait-list` splits waiting from passed itself, on **one** clock read
+     per render (§8.28). The trap is not the split, it is having two of them: the page's `Waiting` panel and
+     the My Bookings `Wait-List (N)` badge are separate components, and if one of them re-derives "is this still
+     actionable" the badge and the list will disagree within a minute. **Put the derivation in one place
+     (`utils/waitlist.ts`) and call it from every surface**, including the count in a header badge.
+42. **The wait-list's duplicate rule is a step-for-step client mirror, like the recurrence generator
+     (Phase 20).** The server refuses a second entry with `roomId = X AND employeeId = Y AND startTime < :end
+     AND endTime > :start` (half-open, so abutting windows are legal), in
+     `WaitlistRepository.findOverlappingForEmployee`. `utils/waitlist.ts`'s `windowsOverlap` /
+     `ownWaitlistEntryForWindow` re-implement that so the join button can offer the *existing entry* instead of
+     a second one the server would refuse. **Change one side and you must change the other in the same commit**
+     (§8.34's rule, second instance).
+43. **A conversion books the RELEASED slot, not the window the waiter queued for (Phase 20).** Cancelling a
+     booking hands it to the first overlapping entry but reuses the **cancelled booking's** `startTime`/
+     `endTime`, so a waiter who queued 08:00–11:00 for a 09:00–10:00 booking gets a 09:00–10:00 booking
+     (Phase 10 accepted this when it built the conversion — see the "FREED SLOT's exact times" note in §5's
+     Phase 10 section). Two consequences: the UI must not promise the queued window (the copy says the booking
+     is made "as soon as the room is released" and nothing about times), and a harness must not assert the
+     queued window. Separately,
+     **the API exposes no queue size and no position** — `myWaitlist` returns only the caller's own entries —
+     so a "3 people waiting" or "#2 in line" number in the UI would be invented, and none is rendered. If a
+     future phase wants either, it needs a backend change first.
+
+44. **`maintenance` rows seeded with raw SQL get a NULL id (Phase 21).** The column has no
+     `DEFAULT nextval(...)` — TypeORM assigns ids inside `save`, and `INSERT ... RETURNING id` on a raw insert
+     returns nothing (the id comes back `NULL`, which `psql -t -A` prints as empty). Any harness that seeds
+     maintenance windows must supply the id explicitly (`coalesce(max(id),0)+1` per row) or the row can only be
+     cleaned up by reason/times and can silently accumulate a NULL-keyed overlap. The app's own create is
+     unaffected because it goes through the repository's `save`.
+
+45. **`new Date('YYYY-MM-DD')` is UTC midnight, so a local day heading can print the wrong day
+    (Phase 22).** An ISO date-only string is parsed as **UTC**; formatting it with `toLocaleDateString` in
+    any timezone west of Greenwich yields the **previous** day. This session's browser is `Asia/Calcutta`
+    (+5:30), so the UI harness would never have caught it — the calendar's `formatDayHeading` must parse
+    date-only values through the local constructor (`startOfLocalDayValue`) instead. The same rule applies
+    to any day bucketing that must agree with a `datetime-local` input. Worth remembering when a future
+    phase formats a date-only string: pass the *instant* when you mean an instant, and the local
+    constructor when you mean a calendar day.
+46. **An aggregate query with no `ORDER BY` hands the UI an arbitrary row order (Phase 22).**
+    `AnalyticsRepository.findUsageByRoom` returns one row per room with no ordering, so the per-room table
+    was written under a false assumption that the server sorts by room name. The report now sorts
+    client-side (a table whose row order shifts between loads cannot be read down a column) rather than
+    changing a Phase 12 query's contract. Any new report built on a `GROUP BY` should sort before rendering,
+    and any docstring claiming a server-side order must be checked against the repository.
 
 ## 9. Pending Decisions / Next Steps
 
@@ -1969,7 +2307,8 @@ layout (§9 "Next").
   would have had **zero recipients** (the waiter *is* the organizer and there are no participants),
   so the waiter would never learn they got a room. The payload carries the waitlist window
   (`waitlistStartTime`/`waitlistEndTime`) next to the booking times because the two can differ —
-  Phase 20/23 will need both.
+  **Phase 23's socket client will need both**; Phase 20 deliberately did not consume either, because it
+  refreshes instead (§9.9) and the notification text already tells the user the booking exists.
 - **No conversion on no-show release** (the release fires at `start + 10 min`, exactly when the
   check-in window closes, so every converted booking would start in the past and be re-released,
   draining the list ~1 entry/minute). `onBookingNoShowReleased` stays wired as a logged no-op.
@@ -2011,11 +2350,13 @@ layout (§9 "Next").
   (`total ≥ cancelled + noShows`). The user explicitly rejected filtering cancellations out of the total.
 - **Zero-usage rooms DO appear** in `usageAnalytics` rows (0/0/0), via `rooms LEFT JOIN bookings`.
   A usage report that silently omits an idle room reads as "no data" rather than "unused", and the
-  frontend (Phase 22) needs the full room list to render a complete table.
+  frontend needed the full room list to render a complete table (Phase 22: the tiles are sums over these
+  rows, and the table lists all six).
 - **Calendar payload = flat `[BookingType!]!`** — reuse `BookingType` so the existing room/organizer/
   participants field resolvers work on calendar rows, exactly like `recurringBookingGroup` already does
   (FR-44's "AdminCalendar" is the query/feature name, not a new GraphQL type). Maintenance windows stay
-  on `roomMaintenance`; Phase 22 composes the two.
+  on `roomMaintenance`; Phase 22 composes the two — with the office-wide `officeMaintenance` read added
+  for exactly this, instead of one `roomMaintenance` read per room per range.
 
 **Decided 2026-09-26 (Phase 13 session, user-approved — all six asked at kickoff):**
 - **One socket event per notification type** — `notification:BOOKING_CREATED`, `notification:PARTICIPANT_ADDED`,
@@ -2227,6 +2568,24 @@ layout (§9 "Next").
 - [ ] Any CDP harness counting network requests: the frontend talks to the **Vite dev proxy**, so match
       `endsWith('/graphql')` on the *frontend* origin, and confirm the counter sees the initial page load
       before trusting a `0` (§8.39)
+- [ ] Frontend: a mutation that returns a **scalar** (`leaveWaitlist: Boolean!`) or a single new entity is not a
+      cache update for the list it belongs to — the caller must `refetchQueries` that list (§8.40)
+- [ ] Frontend: when a list endpoint returns **no time filter**, split it client-side on **one** clock read, and
+      share that one derivation with every other surface that counts or filters the same rows — two copies of
+      "is this still actionable" will disagree (§8.41)
+- [ ] Frontend: a wait-list/queue surface renders **no queue size and no position** unless the API exposes
+      them, and its copy does not promise the window the user queued for — a conversion books the **released**
+      slot (§8.43)
+- [ ] Frontend: a list row that needs a real control in its action slot is **not** a whole-row link (§8.30) —
+      link the primary text only, as `pages/wait-list/WaitlistRow.tsx` does
+- [ ] Frontend: a maintenance surface splits scheduled/past on **one** clock read and shares the derivation
+      across surfaces; the always-closed window needs **no new availability logic** because the backend folds
+      maintenance into the busy set — prove the block visibly and re-render the engine's refusal verbatim
+      (§9.10)
+- [ ] Any harness that seeds `maintenance` rows: supply the id explicitly — raw inserts have no id default and
+      come back NULL-keyed (§8.44)
+- [ ] Frontend harness: a panel-content assertion must reach the rows, not the panel header — walk up from the
+      `h2` to the card, and read **all** `role="status"` regions, because a page usually has more than one
 
 Report a change/decision here when it affects how the app runs (tooling, schema, phases, conventions).
 
@@ -2455,3 +2814,140 @@ All six were asked at kickoff and the user took every recommendation. The plan's
 **Not decided / not built here:** a `NO_SHOW_RELEASED` socket event or any push-based status update,
 per-participant check-in (a booking is checked in once, by whoever arrives first), and editing or withdrawing
 a check-in. Raise these with the user before building them.
+
+### 9.9 Decided 2026-09-27 — Phase 20: Waitlist (frontend)
+
+The plan's Phase 20 checklist is two lines long ("join/leave buttons when a slot is taken", "waitlist indicator
+on Room Details and My Bookings") and does not say *where* any of it lives, so all five were asked before
+building. The user took every recommendation.
+
+- **Where can you join?** → **Create Booking only**, for the room and window the form already holds, offered
+  when the availability query says the room is not free or when the engine has just refused with `CONFLICT`.
+  Room Details is where someone *looks at a room*, not where they choose a window, so it reports the caller's
+  own entries and offers Leave but not Join. That also keeps one code path for the join mutation instead of
+  two that could disagree.
+- **What does `/wait-list` look like?** → **A real page, mirroring My Bookings**: `Waiting` and `Past` panels
+  (named `Waiting` / `Passed` here), the past list capped at 10 with *Show all* / *Show less*. The alternative —
+  a single list with filters — was rejected because the placeholder route is the app's only other page with no
+  shape, and My Bookings already established this one.
+- **How prominent is the waitlist on My Bookings?** → **A header count and link only**, `Wait-List (N)`. No
+  per-row mark, same reasoning as Phase 19's check-in decision: it would grow the lean list fragment for a fact
+  the row does not otherwise carry. The count is **active entries only** — a passed entry is history, not
+  something to act on.
+- **How does a converted entry reach the screen?** → **Refetch on window focus plus an explicit Refresh**, not
+  a socket. Phase 10 already emits `WAITLIST_CONVERTED`, but the frontend Socket.io client is Phase 23, and
+  building it early would mean a second, parallel update mechanism. Same mechanism, same reason as §9.8's
+  fourth bullet.
+- **What can you do with a waiting row?** → **Leave, and *Book this slot*.** Leave confirms (it hands the slot
+  on and cannot be undone); *Book this slot* is a deep link into Create Booking with the room and window
+  prefilled, because a waiter often wants the slot directly if it is still free when they look. Join itself
+  stays one click.
+- **Small calls made without asking, all following an existing pattern:** the join control is a single outline
+  `Button` beside the refusal it answers; a room page's wait-list panel is scoped to that room and lists only
+  active entries; a passed row offers neither Leave nor *Book this slot*; an admin visiting `/wait-list` simply
+  gets whatever the server returns (`myWaitlist` is authenticated, not employee-only) rather than a new client
+  route gate — `joinWaitlist`'s `FORBIDDEN` is the answer, exactly as with Create Booking's admin path.
+- **Nothing renders a queue size or a position**, because the API exposes neither (§8.43).
+
+**Not decided / not built here:** a Socket.io client for `WAITLIST_CONVERTED` (Phase 23), a wait-list indicator
+on a *booking* row, editing an entry's window, and any queue-depth or position display — the last needs a
+backend change before it can exist.
+
+### 9.10 Decided 2026-09-28 — Phase 21: Maintenance Management (frontend)
+
+The plan's Phase 21 checklist is two lines long ("Maintenance section in Admin Rooms",
+"Maintenance shown as unavailable in Room Details/Search") and does not say *where* either lives or how creating
+a window works, so the shape was settled with the user before building. The user took every recommendation.
+
+- **Which admin surface?** → **A per-room `Maintenance` button on the Admin Rooms card opening a wide manager
+  modal**, mirroring `EquipmentManager`. Not a page, not a tab, not the room directory. `roomMaintenance` is
+  readable by every authenticated role but the two mutations are admin-only, so the manager lives behind the
+  existing `/admin/rooms` route; the server's `FORBIDDEN` is the answer to anyone else — no new client route
+  gate was invented.
+- **Which windows does the manager show?** → **All of them, split `Scheduled` (active + upcoming, soonest
+  first) / `Past` (most recent first), the past list capped at 10 with *Show all N* / *Show less*** — the same
+  split and cap the wait-list page established (§9.9), so anyone who read one list reads both. A window that is
+  running right now stays in Scheduled with its Remove, because it is actionable; history is the admin's to read
+  but not to act on.
+- **Where do employees see maintenance?** → **A `Maintenance` panel on Room Details, for every authenticated
+  role, listing only scheduled windows** with *In progress* on the running one and the empty state
+  *No maintenance is scheduled for this room.* Past history stays admin-side. The alternative — a badge or
+  blocking notice on directory cards — was rejected: a window on an `AVAILABLE` room is invisible in the room's
+  own status badge, so the room page is the only place the reason is not a guess.
+- **What does creating/removing a window look like?** → **A real form with a pre-filled default slot** (add
+  form on top of the manager, submit refetches and re-arms the slot) and **a confirming delete** (title *Remove
+  maintenance window*). Creating is the common case and cheap to reverse, so it stays inline — the async
+  validation and refetch are proof enough it saved; removing hands the time back to the booking engine with no
+  user-side undo, so it mirrors `CancelBookingModal`, whose confirm lives above the room's other lists.
+- **Does Create Booking change?** → **No.** A maintenance window already lands in the backend's
+  `findBusyRoomIds`, so the availability query already drops the room and the engine already refuses a submit.
+  The click-through was proven instead: the room hint turns *Unavailable* with the "not free for the selected
+  time — submitting will be rejected" note, and the submit shows the engine's message verbatim. Adding client
+  logic to special-case maintenance would break Phase 20's rule that the client never states *why* a slot is
+  blocked (§9.9).
+- **Small calls made without asking, all following an existing pattern:** the add form's timing fields are the
+  shared `DateTimePicker`s and the layout reuses the `Modal` grid; a window row shares one `MaintenanceRow`
+  between the manager and the panel; the manager's error line is a `role="alert"` under the form like `RoomForm`;
+  `splitMaintenanceWindows` lives in `utils/maintenance.ts` so the two surfaces can never disagree; the empty
+  manager states read "No maintenance is scheduled for this room." / "No maintenance windows have passed."; and
+  the room page's panel refetches on focus like every other panel whose data can drift (§9.9's mechanism).
+- **One backend fact is deliberately not re-implemented:** a create that clashes with a booking **or** another
+  window is refused by the engine with a verbatim `CONFLICT` message rendered where the user acted — the client
+  does not pre-check overlaps, because the `SERIALIZABLE` transaction owns the guarantee (§8.9).
+
+**Not decided / not built here:** editing a window's times (delete and re-create instead), any "record a completed
+job" lifecycle or status column, showing maintenance on directory cards or search, and scheduled-window
+notifications — the last needs a socket or the Phase 23 client.
+
+### 9.11 Decided 2026-09-28 — Phase 22: Admin Calendar & Analytics (frontend)
+
+The plan's Phase 22 checklist is two lines long ("Admin Calendar page", "Analytics page with basic stats") and
+one uncertain backend line ("confirm AdminCalendar/UsageAnalytics support whatever date-range controls the UI
+exposes"). The user took every recommendation.
+
+- **Improvise, from the existing primitives — no new designs were supplied.** The calendar and analytics pages
+  are built on §7.1/§7.2 exactly as Phases 20 and 21 were, and the app's **first table** is improvised the same
+  way (§7.2.11 decides no table styling). This keeps Phase 22 consistent with the six pages before it instead of
+  introducing a look nothing else shares.
+- **What is the calendar's shape?** → **A day-grouped agenda, not a week grid.** One card per local day with
+  activity, rows inside it earliest-first. A grid needs a layout primitive the app has never had (and would need
+  pixel decisions the user has not made), while a list is what every other surface already is — and the day
+  heading carries the date, so nothing is lost. Empty days are dropped so an empty week is one `EmptyState`
+  rather than seven empty cards.
+- **Which range controls?** → **One shared `RangePicker`**: Today / This week / This month / Last 30 days plus a
+  custom From/To pair, **Monday-first** (matching the en-GB copy elsewhere), defaulting to **this week** — a week
+  is the natural admin "now" view, and it is the range the baseline data can actually exercise. The From/To pair
+  is the authority and there is **no Apply step**: an admin exploring ranges wants the data to move under them.
+  Both pages use the identical control, so the calendar and the report can never be showing different periods.
+- **Does the calendar show maintenance?** → **Yes, and it is a new office-wide read.**
+  `officeMaintenance(input: DateRangeInput!)` (admin-only) was approved and added, rather than composing
+  `roomMaintenance` per room: the calendar must show what is blocking a room, and six per-room reads per range
+  is the N+1 the plan's own conventions warn about. The user explicitly chose a range query over per-room reads.
+- **How is a multi-day window drawn?** → **On every day it covers, clipped to that day**, with *All day* or the
+  hours it occupies, an end at the day's boundary as `24:00`, and *Runs …* whenever it spans days. Filing it
+  under its start day alone — the first implementation — would hide a week-long block from precisely the days it
+  blocks, and the baseline window is exactly that case. *In progress* is claimed only on today.
+- **What does analytics show?** → **Four tiles (Total Bookings, Cancellations, No-shows, Rooms With Usage) over one
+  per-room table listing every room.** The tiles are sums over the table's own rows, because
+  `usageAnalytics` already returns every room including idle ones as 0/0/0 (Phase 12, §9) — so the numbers
+  always reconcile with the table and no second query is needed. The user's alternative (one tile per room) was
+  rejected: six tiles is a wall, and the table already answers "which room".
+- **How is Analytics reached?** → **Links only**: Calendar ↔ Analytics header buttons, plus a *View Analytics*
+  action on the dashboard's Room Usage panel. **The sidebar is left exactly as it is** (Dashboard / Calendar /
+  Rooms / Equipment) because §2.1.1 fixes the admin navigation — adding an Analytics item would change a
+  requirement rather than a design, so it was not done unilaterally.
+- **Small calls made without asking, all following an existing pattern:** the day cap is 10 with *Show all N* /
+  *Show less* (Phase 20/21); both pages refetch on window focus and carry an explicit Refresh, because the cron
+  jobs can flip a booking's status with no socket event (Phase 13 emitted no `NO_SHOW_RELEASED` on purpose);
+  an inverted range is explained inline and asked of **no** query — including by focus and Refresh, which
+  needed an explicit `rangeValid` guard because Apollo's `skip` does not survive `refetch()`; the
+  calendar's summary line counts bookings,
+  windows and days with activity; the analytics table is sorted by room name client-side because the query has
+  no `ORDER BY` (§8.46); the calendar's day list and the analytics tiles are marked `aria-busy` while re-reading,
+  and a range change keeps the last answer on screen instead of blanking to zero.
+
+**Not decided / not built here:** a week/day/month **grid** or month view, drag-to-reschedule, booking or
+maintenance **creation or editing from the calendar** (a click goes to the booking's details page, as everywhere
+else), maintenance on the **employee** calendar, exporting the report, and any date-range comparison (this week
+vs last week). A sidebar Analytics item is available if the user wants to change §2.1.1.
+

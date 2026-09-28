@@ -2,16 +2,24 @@
 
 **Project type:** Full-stack meeting-room booking system
 **Source of truth:** doc/requirement.md
-**Status:** **Phases 1–18 implemented** (the full backend track 1–13, verified through the API + a bare
-Socket.io client with no UI, plus the first five frontend phases: 14 Rooms, 15 Equipment,
-16 Core Booking, 17 Manage Bookings & Cancellation and 18 Recurring Meetings).
-Phases 19–23 (the rest of the frontend track) follow, in the same feature order: each
+**Status:** **Phases 1–20 implemented** (the full backend track 1–13, verified through the API + a bare
+Socket.io client with no UI, plus the first seven frontend phases: 14 Rooms, 15 Equipment,
+16 Core Booking, 17 Manage Bookings & Cancellation, 18 Recurring Meetings, 19 Check-in & No-show
+and 20 Waitlist).
+Phases 21–23 (the rest of the frontend track) follow, in the same feature order: each
 opens with a "Backend adjustments" step against the already-proven API rather than starting a new
 module. Hardening (24) and docs/delivery (25) close the project.
 
 ## Scope Note
 
 Testing, Husky, and extra tooling are intentionally left out for now. They can be added after the core booking flow works.
+
+## Solve Problem
+
+Meeting Room Intelligence is designed to solve the challenges organizations face in managing shared meeting rooms. It prevents double bookings and scheduling conflicts, ensures rooms are suitable based on capacity and equipment, handles recurring meetings and waiting lists, automatically releases rooms when users fail to check in, and gives administrators centralized control over rooms, maintenance, bookings, and usage analytics. The system also uses role-based authorization, transactional database operations, and DataLoader-based query optimization to provide a secure and scalable solution.  
+
+One-line problem statement
+This project solves the problem of inefficient meeting-room utilization by providing a secure, conflict-free, automated system for discovering, booking, managing, and monitoring workplace meeting rooms.
 
 ---
 
@@ -711,18 +719,47 @@ project-state §5 (Phase 19) and §8.37.
 
 ### Phase 20 — Waitlist (Frontend)
 
-**Backend adjustments (if needed):** none expected — consumes Phase 10's queries/mutations as-is.
+**Backend adjustments (if needed):** none — consumes Phase 10's queries/mutations as-is
+(`myWaitlist`, `joinWaitlist`, `leaveWaitlist`). No migration, no schema change.
 
 **Frontend tasks:**
 - Join/leave buttons when a slot is taken.
 - Waitlist indicator on Room Details and My Bookings.
 
-**Deliverable:** Working waitlist chain in the UI.
-**Done when:** Cancelling a booking automatically books the first waiting user and the UI shows the new booking.
+**Scope settled with the user before building (project-state §9.9):**
+- **Join lives on Create Booking only**, for the room and window the form already holds, and is offered when
+  the availability query says the room is not free *or* when the engine has already refused the submit with
+  `CONFLICT`. Room Details reports the caller's own entries and offers Leave, but not Join — the booking form
+  is the only place that knows which window the user wants.
+- **`/wait-list` is a real page** replacing the placeholder: the same two panels My Bookings uses (`Waiting`,
+  `Passed`, the past list capped at 10 with Show all/Show less), split client-side because `myWaitlist`
+  returns every entry unfiltered.
+- **My Bookings gets a header count and link** (`Wait-List (N)`, active entries only) — no per-row note, so the
+  lean list fragment is untouched.
+- **No per-row "you are on this waitlist" mark on My Bookings bookings**, same reasoning as the check-in
+  decision in Phase 19.
+- **Conversion is picked up by refetch on window focus plus an explicit Refresh**, not by a socket: Phase 10
+  emits `WAITLIST_CONVERTED`, but the frontend Socket.io client is Phase 23.
+- **Each waiting row offers Leave and a `Book this slot` deep link** into
+  `/create-booking?room=…&start=…&end=…`, which the form reads to prefill itself. Leaving confirms; joining
+  does not.
+- **No queue size or position is rendered anywhere** — the API exposes neither, so any number would be invented.
 
-### Phase 21 — Maintenance Management (Frontend)
+**Deliverable:** Working waitlist chain in the UI. ✅
+**Done when:** Cancelling a booking automatically books the first waiting user and the UI shows the new booking. ✅
+verified live — 56/56 API checks and 67/67 headless-Chrome UI checks (`/private/tmp/p20-api.mjs`,
+`/private/tmp/p20-ui.mjs`): cancelling a blocking booking converted the first waiter into a `Waitlisted
+booking` on the released window, and her page showed it on the next read while the entry left Waiting.
+A cleanup pass then fixed a room-panel defect the harness had missed (leaving a room's *last* entry
+destroyed its own confirmation) and added 8 checks for it, including a run against the unfixed code to
+prove the check fails (65/2) as well as one against the fix (67/0). See project-state §5 (Phase 20),
+§8.40–8.43 and §9.9.
+
+### Phase 21 — Maintenance Management (Frontend): ✅ DONE
 
 **Backend adjustments (if needed):** none expected — consumes Phase 11's queries/mutations as-is.
+`roomMaintenance` is shared by every authenticated role; `createMaintenance` / `deleteMaintenance` stay admin-only
+through the existing `@Authorized(ADMIN)` gate and the service's own role re-check. No backend change was made.
 
 **Frontend tasks:**
 - Maintenance section in Admin Rooms.
@@ -731,16 +768,46 @@ project-state §5 (Phase 19) and §8.37.
 **Deliverable:** Maintenance blocks availability in the UI.
 **Done when:** A room under maintenance is excluded from search and cannot be booked, visibly.
 
-### Phase 22 — Admin Calendar & Analytics (Frontend)
+The scope was settled with the user before building (project-state §9.10), and the always-closed
+maintenance window blocks Create Booking to a visible end. See project-state §5 (Phase 21) and §9.10.
 
-**Backend adjustments (if needed):** confirm AdminCalendar/UsageAnalytics support whatever date-range controls the UI exposes.
+### Phase 22 — Admin Calendar & Analytics (Frontend): ✅ DONE
+
+**Backend adjustments (made):** one new read, because the calendar must show what is *blocking* a room and the
+API had no office-wide window query. `officeMaintenance(input: DateRangeInput!)` (admin-only) returns every
+maintenance window overlapping the range with its room name, so the page is two reads for the whole range
+rather than one per room. `common/date-range.ts` was extracted so `AnalyticsService` and `MaintenanceService`
+share one `assertValidDateRange` (same message, same `VALIDATION_ERROR` code) instead of a private duplicate.
+`adminCalendar` / `usageAnalytics` are unchanged. See project-state §9.11.
 
 **Frontend tasks:**
 - Admin Calendar page.
 - Analytics page with basic stats.
 
+**Scope settled with the user before building (project-state §9.11):**
+- **Day-grouped list, improvised on the existing §7.1/§7.2 primitives** — no screenshots, no new design tokens.
+- **One shared `RangePicker`** (Today / This week / This month / Last 30 days + custom From/To, Monday-first,
+  default this week) drives both pages; the From/To pair is the authority, and the range changes with no Apply
+  step. An inverted range is explained inline and asked of no query.
+- **A maintenance window is listed on every day it covers**, not only the day it starts, clipped to that day
+  (`All day`, or the hours it occupies) and stating its whole span — a week-long block must be visible on each
+  day it blocks, not hidden on the week it blocks.
+- **Four tiles above one per-room table** (Total Bookings, Cancellations, No-shows, Rooms With Usage). The
+  tiles are sums over the table's rows, which `usageAnalytics` already returns for *every* room.
+- **Reach Analytics by link only** — Calendar ↔ Analytics cross-links and a "View Analytics" action on the
+  dashboard's Room Usage panel. The sidebar is untouched (Dashboard / Calendar / Rooms / Equipment), because
+  the plan's sidebar is a 2.1.1 requirement, not a preference.
+
 **Deliverable:** Admin oversight in the UI.
-**Done when:** Admin sees office-wide bookings and per-room usage stats on screen.
+**Done when:** Admin sees office-wide bookings and per-room usage stats on screen. ✅
+verified live — 23/23 API checks and 62/62 headless-Chrome UI checks (`/private/tmp/p22-api.mjs`,
+`/private/tmp/p22-ui.mjs`), read-only, database left at its exact baseline. A cleanup pass then fixed three
+defects the first pass surfaced: a UTC-parsed day heading that printed the previous day west of Greenwich, and
+a report whose row order came from an unsorted query, plus a range change that blanked the tiles to zero for a
+few hundred milliseconds. A later audit of Phases 1–22 found one further real bug: Apollo's `skip` does not
+survive `refetch()`, so an inverted range still fired malformed `variables: {}` requests on focus and on
+Refresh — invisible on screen, since the `!rangeValid` branch renders above the controls. Both pages now
+guard every refetch trigger with `rangeValid`; the harness pins it. See project-state §5 (Phase 22) and §9.11.
 
 ### Phase 23 — Real-time Notifications (Frontend)
 

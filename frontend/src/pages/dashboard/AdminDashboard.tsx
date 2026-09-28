@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatCard } from '../../components/common/StatCard';
@@ -119,7 +120,18 @@ export const AdminDashboard = () => {
           )}
         </PanelCard>
 
-        <PanelCard title={panels.roomUsage.title} sub={panels.roomUsage.sub}>
+        <PanelCard
+          title={panels.roomUsage.title}
+          sub={panels.roomUsage.sub}
+          action={
+            <Link
+              to="/admin/analytics"
+              className="whitespace-nowrap text-sm font-medium text-navy underline hover:text-brand focus:outline-none focus:ring-2 focus:ring-navy"
+            >
+              View Analytics
+            </Link>
+          }
+        >
           {usage.loading ? (
             <LoadingState />
           ) : usageRows.length === 0 ? (

@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
+import { SocketManager } from './SocketManager';
 import { useAuth } from '../../hooks/useAuth';
 
 export const AppLayout = () => {
@@ -9,6 +10,7 @@ export const AppLayout = () => {
   return (
     <div className="flex min-h-screen flex-col bg-shell">
       <Navbar />
+      <SocketManager />
       <div className="flex flex-1">
         <Sidebar />
         {isAdmin ? (
