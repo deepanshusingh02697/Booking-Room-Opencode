@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, type Location } from 'react-router-dom';
 import { AuthBrandPanel } from '../../components/auth/AuthBrandPanel';
 import { AuthField } from '../../components/auth/AuthField';
 import { AuthTabs, type AuthMode } from '../../components/auth/AuthTabs';
@@ -66,6 +66,7 @@ const RESET_UNAVAILABLE =
 export const LoginPage = () => {
   const { user, logIn, adminLogIn, signUp } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [mode, setMode] = useState<AuthMode>('login');
   const [role, setRole] = useState<AuthRole>('employee');
@@ -102,6 +103,8 @@ export const LoginPage = () => {
     setValues((current) => ({ ...current, [name]: value }));
   };
 
+  const from = (location.state as { from?: Location } | null)?.from ?? '/';
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -129,7 +132,10 @@ export const LoginPage = () => {
           password: values.password,
         });
       }
-      navigate('/', { replace: true });
+      // The mutation has already re-read the session, so the route below renders
+      // against a server-confirmed user. `ProtectedRoute` sends the page it was
+      // guarding in `state.from`; landing somewhere else would lose that deep link.
+      navigate(from, { replace: true });
     } catch (err) {
       setError(getGraphQLErrorMessage(err));
     } finally {

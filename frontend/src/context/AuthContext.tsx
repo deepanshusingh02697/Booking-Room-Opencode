@@ -72,15 +72,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   );
   const [logOutMutation] = useMutation<LogoutData>(LOGOUT_MUTATION);
 
-  const setUser = useCallback(
-    (employee: Employee) => {
-      client.writeQuery<CurrentUserData>({
-        query: CURRENT_USER_QUERY,
-        data: { currentUser: employee },
-      });
-    },
-    [client],
-  );
+  /**
+   * Re-reads the session from the server. `currentUser` is `@Authorized()`, so the
+   * anonymous probe that runs on mount *errors* instead of returning null, and an
+   * Apollo observable keeps that error for its whole lifetime — a `writeQuery` after
+   * a successful login cannot clear it, and `user` above stays null, so the app
+   * bounces straight back to /login. Only a successful fetch of the query replaces
+   * the stored result, so every sign-in has to end with one.
+   *
+   * Deliberately `client.refetchQueries` rather than the mutation's `refetchQueries`
+   * option: the option resolves through the cache's watches, and `clearStore` empties
+   * them, so after a logout it would silently match nothing. This walks the
+   * query manager's registered queries instead, which survive a cleared cache.
+   */
+  const refetchSession = useCallback(async () => {
+    await client.refetchQueries({ include: [CURRENT_USER_QUERY] });
+  }, [client]);
 
   const logIn = useCallback(
     async (email: string, password: string): Promise<Employee> => {
@@ -91,10 +98,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (!employee) {
         throw new Error('Login failed.');
       }
-      setUser(employee);
+      await refetchSession();
       return employee;
     },
-    [logInMutation, setUser],
+    [logInMutation, refetchSession],
   );
 
   const adminLogIn = useCallback(
@@ -106,10 +113,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (!employee) {
         throw new Error('Login failed.');
       }
-      setUser(employee);
+      await refetchSession();
       return employee;
     },
-    [adminLogInMutation, setUser],
+    [adminLogInMutation, refetchSession],
   );
 
   const signUp = useCallback(
@@ -119,36 +126,36 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (!employee) {
         throw new Error('Sign up failed.');
       }
-      setUser(employee);
+      await refetchSession();
       return employee;
     },
-    [signUpMutation, setUser],
+    [signUpMutation, refetchSession],
   );
 
   const logOut = useCallback(async (): Promise<void> => {
     try {
       await logOutMutation();
     } finally {
-      client.writeQuery<CurrentUserData>({
-        query: CURRENT_USER_QUERY,
-        data: { currentUser: null },
-      });
-      client.clearStore();
+      // `clearStore` empties the cache and the watches, and re-fetches nothing, so
+      // the session query is left with no data and no way to ask again. The explicit
+      // refetch is what turns that into the real UNAUTHENTICATED answer.
+      await client.clearStore();
+      await refetchSession();
     }
-  }, [client, logOutMutation]);
+  }, [client, logOutMutation, refetchSession]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       isAuthenticated: user !== null,
       isAdmin: user?.role === UserRole.ADMIN,
-      initialLoading: loading,
+      initialLoading: loading && !data,
       logIn,
       adminLogIn,
       signUp,
       logOut,
     }),
-    [user, loading, logIn, adminLogIn, signUp, logOut],
+    [user, loading, data, logIn, adminLogIn, signUp, logOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

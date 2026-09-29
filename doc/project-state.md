@@ -3067,3 +3067,62 @@ skips all 98 tests with no database contact (no frontend test harness exists, so
 exercised through a throwaway script outside the repo: empty register → all 5 messages, whitespace →
 required, `nope` → valid-email, `abc` → min-8, mismatch → do-not-match, valid input → none). The DB
 suites were not run: this change touches no backend code.
+
+### 9.14 Decided 2026-09-29 — logging in required a browser refresh; fixed by re-reading the session
+
+**The symptom.** A successful login navigated to `/` and immediately bounced back to `/login`; a
+manual refresh then worked. It looked like a missing redirect and it was neither a race nor a
+routing bug — it reproduced on every login, for both roles.
+
+**Why.** `currentUser` is `@Authorized()` and `AuthService.currentUser(null)` throws, so the
+anonymous session probe the `AuthProvider` runs on mount is a GraphQL **error**, not
+`currentUser: null`. Sign-in then only did `client.writeQuery` of the new employee into the cache.
+That cannot clear the error: an Apollo `ObservableQuery` keeps its last error for its whole
+lifetime, and `updateLastResult` re-attaches it to every subsequent result unless the *variables*
+change — and `CURRENT_USER_QUERY` has none. `getCurrentFullResult` builds the delivered result from
+that stored result, so `useQuery` kept reporting `error` while `data` was already populated. The
+derivation `!error && data ? data.currentUser : null` therefore produced `null`, and
+`ProtectedRoute` sent the user back to `/login`. A refresh builds a new `ApolloClient`, whose probe
+runs with the cookie present and with no prior error, so the app loaded. A cache write is a local
+optimism; only a *fetch* replaces the stored result.
+
+**The fix is one refetch per sign-in.** `logIn`, `adminLogIn` and `signUp` now end with
+`client.refetchQueries({ include: [CURRENT_USER_QUERY] })`, awaited, and the `writeQuery` is gone —
+the server's answer lands instead of a cache guess, and the promise no longer resolves until the
+session is confirmed, so the redirect renders against a real user with no "Checking your session…"
+flash. `initialLoading` is now `loading && !data`, so a background refetch can no longer blank the
+app into a full-screen spinner. The `!error` guard is deliberately **kept**: it is also what
+redirects a user whose token has expired server-side, and once the refetch is in place `error` is
+genuinely `undefined` after a successful login, so it no longer costs anything.
+
+**`client.refetchQueries`, not the mutation's `refetchQueries` option, and not `resetStore`.** The
+mutation option resolves through the cache's watches (`cache.batch` → `broadcastWatches` →
+`this.watches`), and `clearStore` empties them (`cache.reset({ discardWatches: true })` does
+`this.watches.clear()`), so after a logout it would silently match nothing and the bug would come
+back on the second login in the same tab. `client.refetchQueries` walks the query manager's
+registered queries instead, which survive a cleared cache. `refetchQueries` does not need
+`resetLastResults` to clear the error: `reobserveAsConcast` does not reset it, but
+`updateLastResult` only re-attaches the old error to `this.last.error` while `this.last.result`
+becomes the clean response, and `useQuery` reads `getCurrentResult()` — so the error is gone from
+what the app sees.
+
+**Logout was leaning on the same accident.** It wrote `currentUser: null` into the cache (against a
+non-null schema field) and then called `clearStore`, which discards that write a microtask later.
+`clearStore` does not refetch — `resetStore` is the operation that resets *and* refetches — so the
+cache write was what made logout work, and the session query was left holding no data and no way to
+ask again. It is now `clearStore()` followed by the same explicit session refetch, which produces the
+real `UNAUTHENTICATED` answer and leaves the query in a state the next login can recover from.
+
+**Also:** `ProtectedRoute` has always passed `state={{ from: location }}` and `LoginPage` always
+ignored it, so a deep link to `/rooms` was lost on every sign-in. The page now navigates to
+`state.from` when there is one.
+
+**Verified:** `npm run typecheck`, `npm run lint` (0 errors, the same 9 pre-existing
+`react-hooks/exhaustive-deps` warnings in other pages), `npm run build` green; `npm run test -w
+backend` skips all 98 tests with no database contact. The mechanism was traced in the installed
+`@apollo/client` 3.14.1 source rather than only asserted; a runnable harness for it was attempted
+outside the repo and dropped — the repo has no frontend test harness and no jsdom, and emulating
+`useQuery`'s error-resubscription by hand was not faithful enough to be worth trusting. **The
+end-to-end check is therefore still a manual one: sign in, land on the dashboard with no refresh,
+then sign out and sign in again in the same tab.** The DB suites were not run: no backend code
+changed.
