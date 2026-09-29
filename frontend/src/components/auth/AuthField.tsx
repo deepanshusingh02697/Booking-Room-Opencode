@@ -83,7 +83,7 @@ export const AuthField = ({
             onClick={() => setRevealed((current) => !current)}
             aria-label={revealed ? 'Hide password' : 'Show password'}
             aria-pressed={revealed}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-navy"
+            className="absolute right-2.5 top-5 -translate-y-1/2 text-muted transition-colors hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-navy"
           >
             {revealed ? <EyeOffIcon /> : <EyeIcon />}
           </button>

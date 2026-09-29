@@ -106,7 +106,7 @@ export const EmployeeDashboard = () => {
           title={panels.quickAction.title}
           sub={panels.quickAction.sub}
         >
-          <div className="mt-6 flex flex-col items-center gap-3">
+          <div className="mt-6 flex items-center gap-3">
             <Button
               variant="primary"
               icon={<LuPlus aria-hidden />}
