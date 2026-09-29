@@ -14,7 +14,7 @@ export class BookingCheckInFieldResolver {
     @Root() booking: BookingType,
     @Ctx() ctx: AppContext,
   ): Promise<boolean> {
-    return this.checkInService.hasCheckedIn(ctx.user, booking.id);
+    return this.checkInService.hasCheckedIn(ctx.user, booking.id, ctx.loaders);
   }
 
   @FieldResolver(() => CheckInType, { nullable: true })
@@ -26,6 +26,7 @@ export class BookingCheckInFieldResolver {
     const checkIn = await this.checkInService.getForBooking(
       ctx.user,
       booking.id,
+      ctx.loaders,
     );
     return checkIn ? toCheckInType(checkIn) : null;
   }

@@ -1,4 +1,5 @@
 import { AuthUser } from '../../../common/context';
+import { Loaders } from '../../../common/dataloaders';
 import {
   ConflictError,
   ForbiddenError,
@@ -87,18 +88,21 @@ export class CheckInService {
   async hasCheckedIn(
     user: AuthUser | null,
     bookingId: number,
+    loaders?: Loaders,
   ): Promise<boolean> {
-    this.requireAuthenticated(user);
-    const checkIn = await this.checkInRepository.findByBookingId(bookingId);
+    const checkIn = await this.getForBooking(user, bookingId, loaders);
     return checkIn !== null;
   }
 
   async getForBooking(
     user: AuthUser | null,
     bookingId: number,
+    loaders?: Loaders,
   ): Promise<CheckIn | null> {
     this.requireAuthenticated(user);
-    return this.checkInRepository.findByBookingId(bookingId);
+    return loaders
+      ? loaders.checkInByBookingId.load(bookingId)
+      : this.checkInRepository.findByBookingId(bookingId);
   }
 
   async releaseNoShows(now: Date): Promise<Booking[]> {

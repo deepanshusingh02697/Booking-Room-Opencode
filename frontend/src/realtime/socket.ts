@@ -2,6 +2,19 @@ import { io, Socket } from 'socket.io-client';
 import type { NotificationEventName, NotificationEventPayload } from './events';
 
 let socket: Socket | null = null;
+const statusListeners = new Set<(connected: boolean) => void>();
+
+const emitStatus = (connected: boolean): void => {
+  statusListeners.forEach((listener) => listener(connected));
+};
+
+/** The connection state changes outside React, so components subscribe to it. */
+export const subscribeSocketStatus = (listener: (connected: boolean) => void): (() => void) => {
+  statusListeners.add(listener);
+  return () => {
+    statusListeners.delete(listener);
+  };
+};
 
 export const getSocket = (): Socket | null => socket;
 
@@ -19,10 +32,12 @@ export const initSocket = (): Socket => {
 
   socket.on('connect', () => {
     console.debug('[socket] connected', socket?.id);
+    emitStatus(true);
   });
 
   socket.on('disconnect', (reason) => {
     console.debug('[socket] disconnected', reason);
+    emitStatus(false);
   });
 
   socket.on('connect_error', (error) => {
@@ -37,6 +52,7 @@ export const disconnectSocket = (): void => {
     socket.disconnect();
     socket = null;
   }
+  emitStatus(false);
 };
 
 type NotificationHandler = (payload: NotificationEventPayload) => void;
@@ -51,19 +67,4 @@ export const onNotification = (
   }
   s.on(event, handler);
   return () => s.off(event, handler);
-};
-
-export const offNotification = (
-  event: NotificationEventName,
-  handler?: NotificationHandler,
-): void => {
-  const s = getSocket();
-  if (!s) {
-    return;
-  }
-  if (handler) {
-    s.off(event, handler);
-  } else {
-    s.off(event);
-  }
 };

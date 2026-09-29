@@ -14,7 +14,11 @@ export class MaintenanceRoomFieldResolver {
     @Root() maintenance: MaintenanceType,
     @Ctx() ctx: AppContext,
   ): Promise<RoomType> {
-    const room = await this.roomService.getById(ctx.user, maintenance.roomId);
+    const room = await this.roomService.getById(
+      ctx.user,
+      maintenance.roomId,
+      ctx.loaders,
+    );
     return toRoomType(room);
   }
 }

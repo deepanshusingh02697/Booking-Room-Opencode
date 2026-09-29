@@ -2,13 +2,13 @@
 
 **Project type:** Full-stack meeting-room booking system
 **Source of truth:** doc/requirement.md
-**Status:** **Phases 1–20 implemented** (the full backend track 1–13, verified through the API + a bare
-Socket.io client with no UI, plus the first seven frontend phases: 14 Rooms, 15 Equipment,
-16 Core Booking, 17 Manage Bookings & Cancellation, 18 Recurring Meetings, 19 Check-in & No-show
-and 20 Waitlist).
-Phases 21–23 (the rest of the frontend track) follow, in the same feature order: each
-opens with a "Backend adjustments" step against the already-proven API rather than starting a new
-module. Hardening (24) and docs/delivery (25) close the project.
+**Status:** **Phases 1–23 implemented** (the full backend track 1–13, verified through the API + a bare
+Socket.io client with no UI, plus the whole frontend track: 14 Rooms, 15 Equipment,
+16 Core Booking, 17 Manage Bookings & Cancellation, 18 Recurring Meetings, 19 Check-in & No-show,
+20 Waitlist, 21 Maintenance Management, 22 Admin Calendar & Analytics and 23 Real-time Notifications).
+Phase 24 (hardening) is partly done — the critical-rule test suites and the DataLoaders are in; the
+security checklist, list pagination and the frontend loading/empty/error pass are not. Phase 25
+(docs/delivery) is open.
 
 ## Scope Note
 
@@ -809,14 +809,20 @@ survive `refetch()`, so an inverted range still fired malformed `variables: {}` 
 Refresh — invisible on screen, since the `!rangeValid` branch renders above the controls. Both pages now
 guard every refetch trigger with `rangeValid`; the harness pins it. See project-state §5 (Phase 22) and §9.11.
 
-### Phase 23 — Real-time Notifications (Frontend)
+### Phase 23 — Real-time Notifications (Frontend): ✅ DONE
 
-**Backend adjustments (if needed):** none expected — consumes Phase 13's socket events as-is.
+**Backend adjustments (if needed):** none — consumes Phase 13's socket events as-is.
 
 **Frontend tasks:**
 - Socket.io client with credentials.
 - NotificationBell + useNotifications hook.
 - Refetch queries on relevant events.
+
+**Delivered:** `NotificationProvider` mounted in `AppLayout` above the `Navbar`, so the socket is
+connected and the five event handlers are registered *before* any component can render the bell —
+previously the bell mounted its own copy of the hook, found no socket, and registered nothing.
+One owner now holds the list, the socket lifecycle and the refetches; the unread count is derived
+from the list instead of a second counter; connection state is a subscription, not a render-time read.
 
 **Deliverable:** Live notifications in the UI.
 **Done when:** Adding a participant triggers their notification in real time, visibly.
@@ -830,9 +836,13 @@ guard every refetch trigger with `rangeValid`; the harness pins it. See project-
 **What we build:** Tests for the critical rules, plus a security/performance pass.
 
 **Backend tasks:**
-- Tests: overlapping booking rejected, concurrent double-book blocked, past booking rejected, invalid time range rejected, capacity rejected, maintenance/disabled room rejected, cannot cancel another user's booking, unauthorized GraphQL rejected, no-show release rule, waitlist conversion, recurring conflicts.
-- Security: bcrypt cost, JWT expiry, httpOnly/Secure/SameSite cookie, CORS origin, no secret leaks, no internal errors leaked.
-- Performance: DataLoaders to remove N+1, confirm indexes, paginate lists.
+- Tests — ✅ done. 97 tests over six suites (auth, bookings, check-in, maintenance, rooms, waitlist)
+  plus the DataLoader batching test, run with `npm run test:db -w backend`. The suites are
+  destructive: they truncate the development database between tests and only run behind
+  `RUN_DB_TESTS=1`, so re-seed afterwards. Plain `npm run test` skips them.
+- Security: bcrypt cost, JWT expiry, httpOnly/Secure/SameSite cookie, CORS origin, no secret leaks, no internal errors leaked. — open
+- Performance: DataLoaders to remove N+1 — ✅ done (per-request loaders on the relations a field
+  resolver fetches per parent). Confirm indexes, paginate lists — open.
 
 **Frontend tasks:**
 - Confirm every backend error shows a proper message; all screens have correct loading/empty/error/success states.

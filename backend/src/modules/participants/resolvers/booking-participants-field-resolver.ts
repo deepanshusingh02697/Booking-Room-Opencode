@@ -17,6 +17,7 @@ export class BookingParticipantsFieldResolver {
     const participants = await this.participantService.listForBooking(
       ctx.user,
       booking.id,
+      ctx.loaders,
     );
     return participants.map(toParticipantType);
   }

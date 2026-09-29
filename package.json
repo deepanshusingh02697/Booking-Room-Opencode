@@ -10,6 +10,8 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:db": "npm run test:db -w backend",
     "dev:backend": "npm run dev -w backend",
     "dev:frontend": "npm run dev -w frontend"
   },

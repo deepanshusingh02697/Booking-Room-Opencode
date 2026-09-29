@@ -83,6 +83,9 @@ The Meeting Room Intelligence is a full stack application designed to streamline
 - **FR-31:** System shall allow the organizer or an admin to cancel a CONFIRMED booking, enforcing a cancellation-window rule based on the booking's start time.
 - **FR-33:** System shall automatically attempt to convert a matching waiting-list entry into a booking whenever a booking (single or recurring occurrence) is cancelled.
 
+> Numbering note: `FR-32` does not exist — the sequence jumps from FR-31 to FR-33. The gap is left in
+> place so existing references to FR ids stay valid.
+
 ### 3.9 Waiting List
 
 - **FR-34:** System shall allow an authenticated user to join the waiting list for a room and time window, but only when that window is genuinely unavailable (an overlapping confirmed booking exists) and not blocked by maintenance.

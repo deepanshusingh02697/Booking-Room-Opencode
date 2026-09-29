@@ -1,4 +1,5 @@
 import { AuthUser } from '../../../common/context';
+import { Loaders } from '../../../common/dataloaders';
 import { UserRole } from '../../auth/entities/employee';
 import {
   ConflictError,
@@ -127,10 +128,16 @@ export class RoomService {
     return this.roomRepository.search(criteria);
   }
 
-  async getById(user: AuthUser | null, id: number): Promise<Room> {
+  async getById(
+    user: AuthUser | null,
+    id: number,
+    loaders?: Loaders,
+  ): Promise<Room> {
     this.requireAuthenticated(user);
 
-    const room = await this.roomRepository.findById(id);
+    const room = loaders
+      ? await loaders.roomById.load(id)
+      : await this.roomRepository.findById(id);
     if (!room) {
       throw new NotFoundError('Room not found.');
     }

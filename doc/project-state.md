@@ -3,11 +3,16 @@
 > Persistent AI handoff document. Update this file whenever the project state changes
 > so a new OpenCode session or model can continue development without re-discovering context.
 
-Last updated: 2026-09-28 (**Phase 22 — Admin Calendar & Analytics (Frontend) is DONE, so the frontend
+Last updated: 2026-09-29 (**Phase 23 — Real-time Notifications (Frontend) is DONE, so the frontend
+track is complete (14–23), and Phase 24 (hardening) is partly done: the critical-rule test suites
+and the DataLoaders are in; the security checklist, list pagination and the frontend
+loading/empty/error pass are not. §9.12 records this session.**)
+
+Previously (2026-09-28): Phase 22 — Admin Calendar & Analytics (Frontend) is DONE, so the frontend
 track is 9 of 10 phases in: 14 Rooms ✅, 15 Equipment ✅, 16 Core Booking ✅, 17 Manage Bookings &
 Cancellation ✅, 18 Recurring Meetings ✅, 19 Check-in & No-show ✅, 20 Waitlist ✅, 21 Maintenance
-Management ✅, 22 Admin Calendar & Analytics ✅. Next is Phase 23 — Real-time Notifications
-(Frontend).**
+Management ✅, 22 Admin Calendar & Analytics ✅. Next was Phase 23 — Real-time Notifications
+(Frontend).
 Phase 22 needed **one new backend read**: the calendar must show what is *blocking* a room, and the
 API had no office-wide window query, so `officeMaintenance(input: DateRangeInput!)` (admin-only,
 every window overlapping the range with its room name) was added — two reads per range instead of
@@ -2951,3 +2956,68 @@ maintenance **creation or editing from the calendar** (a click goes to the booki
 else), maintenance on the **employee** calendar, exporting the report, and any date-range comparison (this week
 vs last week). A sidebar Analytics item is available if the user wants to change §2.1.1.
 
+### 9.12 Decided 2026-09-29 — Phase 23 (frontend) and the start of Phase 24 hardening
+
+**Phase 23 — notifications had a real bug, not just polish.** The bell mounted its *own*
+`useNotifications()` call, `SocketManager` mounted a second one, and the bell is rendered by the
+`Navbar`, which mounts **before** `SocketManager`. `onNotification` binds to the socket returned by
+`getSocket()`, so at bell mount time there was no socket and every registration was a silent no-op
+(`() => {}`). Notifications therefore never arrived in the UI. Fixed by making one owner:
+`NotificationProvider` (new, `frontend/src/realtime/NotificationProvider.tsx`) wraps the `Navbar` in
+`AppLayout`; it connects the socket, then subscribes, then refetches. `useNotifications` is now a
+context read, `SocketManager.tsx` and `useSocket.ts` are deleted, and `isConnected` is a
+subscription (`subscribeSocketStatus` in `socket.ts`) rather than a render-time `getSocket()?.connected`
+read that could never update. While consolidating: the unread count is derived from the list instead
+of a second counter that could drift, the dead `showAll` branch on the notifications page is gone
+(the list is capped at 50, so it could never reveal more), and `WAITLIST_CONVERTED` refetches
+`myBookings` + `myMeetetings` + `myWaitlist` — it previously refetched only `myBookings`, so a
+converted booking stayed invisible on the main meetings page.
+
+**The test suites existed but never ran.** They imported modules that do not exist, aliased with
+`@/` where the vitest config had no alias for, and were written against service method names that
+have since changed. Rewritten against the real API (`MaintenanceService.create`/`delete`,
+`WaitlistService.join`/`leave`, `CheckInService.checkIn` returning the *booking*, `RoomService.search`
+taking a user) and split: the room-filter tests moved out of the maintenance suite into
+`modules/rooms/room-service.test.ts`, where they belong. Three of the old expectations were also
+wrong about the *rules*: fixtures built at `startOfNextHour()` (0–60 min away) can land inside the
+30-minute cancellation and participant windows, one "maintenance blocks the waitlist" test could not
+reach its assertion because `MaintenanceService` refuses a window overlapping a confirmed booking,
+and the recurring-conflict test put its blocking booking on a day the series never visits.
+
+**The documented recovery step did not work, and now does.** A test run leaves its own rows behind,
+and the seed script is a no-op while any employee row exists — so the "run `npm run seed` afterwards"
+instruction silently restored nothing. The suites now truncate in teardown, so a DB run ends with an
+empty database and the seed actually repopulates it (verified: run → 0 rows → seed → 5 employees,
+5 rooms, 4 equipment, 9 bookings, 6 participants, 1 check-in, 1 waitlist entry, 2 maintenance windows).
+
+**Two environment facts worth keeping.** The suites reuse `AppDataSource` — services build their
+repositories from it, so a separate test DataSource would leave them querying an uninitialised
+connection. That DataSource points `migrations` at `*.ts`, which TypeORM `require()`s during
+`initialize()` and cannot load under the runner, so the test data source clears the glob: the suites
+assert behaviour against the schema that is already there and never migrate it. And the destructive
+opt-in is `RUN_DB_TESTS=1` (`npm run test:db -w backend`); plain `npm run test` must not even open
+a connection, so `vitest.setup.ts` initialises nothing unless the flag is set.
+
+**DataLoaders are wired, and deliberately small.** `AppContext` carries a per-request `Loaders`, and
+the six field resolvers that fetched a relation once per parent (room, organizer/employee,
+participants, check-in, equipment) pass `ctx.loaders` into a service method that takes an optional
+trailing loader. Only those five loaders exist: a loader for something like "all bookings of a room"
+would read an unbounded set of rows to answer a single-field question, which is slower than the
+query it replaces.
+
+**Deleted as unused:** `backend/src/common/rate-limit.ts` (never imported, and it referenced a
+`RateLimitError` that does not exist), `backend/src/migrations/1730000000004-AddEmployeeTokenVersion.ts`
+(the token-version column was never wired into auth), `frontend/src/hooks/usePagination.ts` and
+`frontend/src/components/common/Pagination.tsx` (no caller; no list in the UI is paginated), and the
+frontend `vitest.config.ts` / `vitest.setup.ts` (no frontend test script or test exists, so they
+only claimed a harness that was never set up). Rate limiting and list pagination stay on the Phase 24
+list as work, not as dead code pretending to be done.
+
+**Docs:** `plan.md` and this file were stale (both said Phase 23 was next); `README.md` had no test
+section. `requirement.md` skips from FR-31 to FR-33 — the gap is now called out in a note rather
+than renumbered, so existing FR references stay valid.
+
+**Verified:** `npm run typecheck -w backend`, `npm run build -w backend`, `npm run typecheck`
+(frontend), `npm run build` (frontend) all green; `npm run test -w backend` skips 97 tests with no
+database contact; `npm run test:db -w backend` passes 97/97 and the database was re-seeded
+afterwards. The DataLoader test asserts 12 loads across four loaders issue 4 queries.

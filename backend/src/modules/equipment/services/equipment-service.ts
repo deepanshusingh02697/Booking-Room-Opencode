@@ -1,4 +1,5 @@
 import { AuthUser } from '../../../common/context';
+import { Loaders } from '../../../common/dataloaders';
 import {
   ConflictError,
   ForbiddenError,
@@ -135,10 +136,13 @@ export class EquipmentService {
   async listForRoom(
     user: AuthUser | null,
     roomId: number,
+    loaders?: Loaders,
   ): Promise<Equipment[]> {
     this.requireAuthenticated(user);
 
-    return this.equipmentRepository.listForRoom(roomId);
+    return loaders
+      ? loaders.equipmentsByRoomId.load(roomId)
+      : this.equipmentRepository.listForRoom(roomId);
   }
 
   private async requireRoom(roomId: number): Promise<Room> {

@@ -20,14 +20,24 @@ export class BookingRelationsFieldResolver {
     @Root() booking: BookingType,
     @Ctx() ctx: AppContext,
   ): Promise<RoomType> {
-    const room = await this.roomService.getById(ctx.user, booking.roomId);
+    const room = await this.roomService.getById(
+      ctx.user,
+      booking.roomId,
+      ctx.loaders,
+    );
     return toRoomType(room);
   }
 
   @FieldResolver(() => EmployeeType)
   @Authorized()
-  async organizer(@Root() booking: BookingType): Promise<EmployeeType> {
-    const employee = await this.authService.currentUser(booking.organizerId);
+  async organizer(
+    @Root() booking: BookingType,
+    @Ctx() ctx: AppContext,
+  ): Promise<EmployeeType> {
+    const employee = await this.authService.currentUser(
+      booking.organizerId,
+      ctx.loaders,
+    );
     return toEmployeeType(employee);
   }
 }

@@ -56,6 +56,24 @@ Prerequisites: Node.js, PostgreSQL.
    npm run socket:verify -w backend
    ```
 
+## Tests
+
+Backend tests run from the workspace:
+
+```bash
+npm run typecheck -w backend
+npm run test -w backend
+```
+
+`npm run test` collects every suite and skips the database ones — it needs no database and is safe to
+run at any time. The suites that exercise the services **truncate every table** in the configured
+database between tests, so they are opt-in:
+
+```bash
+npm run test:db -w backend   # sets RUN_DB_TESTS=1
+npm run seed -w backend      # restore the demo data afterwards
+```
+
 ## Architecture
 
 Feature-based modules, each split into layers: Resolver → Service → Repository → Entity. See `doc/plan.md` for the full structure and phase plan.
@@ -70,7 +88,10 @@ Feature-based modules, each split into layers: Resolver → Service → Reposito
 Backend track (Phases 1–13) is complete: project foundation, database design,
 authentication, rooms, equipment, bookings, cancellation, recurring meetings,
 check-in/no-show, waitlist, maintenance, admin calendar/analytics and real-time
-notifications are all served by the API. The frontend track (Phases 14–23) is next.
+notifications are all served by the API. The frontend track (Phases 14–23) is
+complete as well. Phase 24 (hardening) is partly done — the critical-rule test
+suites and the DataLoaders are in; the security checklist, list pagination and the
+frontend loading/empty/error pass are not. Phase 25 (docs/delivery) is open.
 
 - **Phase 13 done-when:** adding a participant delivers a `notification:PARTICIPANT_ADDED`
   event to that employee's connected Socket.IO client in real time — verified with

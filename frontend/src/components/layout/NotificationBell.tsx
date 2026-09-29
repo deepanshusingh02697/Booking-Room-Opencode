@@ -1,17 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { LuBell, LuBellOff, LuMail, LuX } from 'react-icons/lu';
-import { useNotifications } from '../../realtime/useNotifications';
-import { useSocket } from '../../realtime/useSocket';
+import { LuBell, LuBellOff } from 'react-icons/lu';
+import { useNotifications } from '../../realtime/NotificationProvider';
 import { layout, typeScale } from '../../theme';
 import { NavLink } from 'react-router-dom';
 
-interface NotificationBellProps {
-  onNotificationClick?: (bookingId: number) => void;
-}
-
-export const NotificationBell = ({ onNotificationClick }: NotificationBellProps) => {
-  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();
-  const { isConnected } = useSocket();
+export const NotificationBell = () => {
+  const { notifications, unreadCount, isConnected, markAsRead, markAllAsRead, clearAll } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -29,12 +23,9 @@ export const NotificationBell = ({ onNotificationClick }: NotificationBellProps)
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [handleClickOutside]);
 
-  const handleNotificationClick = (notification: { bookingId: number; id: string }) => {
+  const handleNotificationClick = (notification: { id: string }) => {
     markAsRead(notification.id);
     setIsOpen(false);
-    if (onNotificationClick) {
-      onNotificationClick(notification.bookingId);
-    }
   };
 
   const recentNotifications = notifications.slice(0, 10);

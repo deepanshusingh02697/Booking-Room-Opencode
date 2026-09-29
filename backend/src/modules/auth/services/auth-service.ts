@@ -1,4 +1,5 @@
 import { AuthUser } from '../../../common/context';
+import { Loaders } from '../../../common/dataloaders';
 import {
   ConflictError,
   UnauthenticatedError,
@@ -50,11 +51,16 @@ export class AuthService {
     return employee;
   }
 
-  async currentUser(userId: number | null): Promise<Employee> {
+  async currentUser(
+    userId: number | null,
+    loaders?: Loaders,
+  ): Promise<Employee> {
     if (userId === null) {
       throw new UnauthenticatedError();
     }
-    const employee = await this.employeeRepository.findById(userId);
+    const employee = loaders
+      ? await loaders.employeeById.load(userId)
+      : await this.employeeRepository.findById(userId);
     if (!employee) {
       throw new UnauthenticatedError();
     }

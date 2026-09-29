@@ -14,7 +14,11 @@ export class WaitlistEntryRoomFieldResolver {
     @Root() entry: WaitlistEntryType,
     @Ctx() ctx: AppContext,
   ): Promise<RoomType> {
-    const room = await this.roomService.getById(ctx.user, entry.roomId);
+    const room = await this.roomService.getById(
+      ctx.user,
+      entry.roomId,
+      ctx.loaders,
+    );
     return toRoomType(room);
   }
 }

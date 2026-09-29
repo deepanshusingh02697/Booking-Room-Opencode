@@ -1,4 +1,5 @@
-import { Authorized, FieldResolver, Resolver, Root } from 'type-graphql';
+import { Authorized, Ctx, FieldResolver, Resolver, Root } from 'type-graphql';
+import { AppContext } from '../../../common/context';
 import {
   EmployeeType,
   toEmployeeType,
@@ -12,9 +13,13 @@ export class ParticipantEmployeeFieldResolver {
 
   @FieldResolver(() => EmployeeType)
   @Authorized()
-  async employee(@Root() participant: ParticipantType): Promise<EmployeeType> {
+  async employee(
+    @Root() participant: ParticipantType,
+    @Ctx() ctx: AppContext,
+  ): Promise<EmployeeType> {
     const employee = await this.authService.currentUser(
       participant.employeeId,
+      ctx.loaders,
     );
     return toEmployeeType(employee);
   }

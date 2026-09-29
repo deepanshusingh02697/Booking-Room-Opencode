@@ -1,11 +1,25 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useApolloClient } from '@apollo/client';
-import { MY_MEETINGS_QUERY } from '../graphql/queries/bookings';
-import { MY_BOOKINGS_QUERY } from '../graphql/queries/bookings';
+import { useAuth } from '../hooks/useAuth';
+import { MY_BOOKINGS_QUERY, MY_MEETINGS_QUERY } from '../graphql/queries/bookings';
 import { MY_WAITLIST_QUERY } from '../graphql/queries/waitlist';
 import { BOOKING_DETAILS_QUERY } from '../graphql/queries/bookings';
-import { onNotification, offNotification, getSocket } from './socket';
-import type { NotificationEventPayload, NotificationEventName } from './events';
+import {
+  disconnectSocket,
+  getSocket,
+  initSocket,
+  onNotification,
+  subscribeSocketStatus,
+} from './socket';
+import type { NotificationEventName, NotificationEventPayload } from './events';
 
 const STORAGE_KEY = 'mri:notifications';
 const MAX_NOTIFICATIONS = 50;
@@ -81,24 +95,32 @@ const clearStorage = (): void => {
   }
 };
 
-export const useNotifications = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(() => loadFromStorage());
-  const [unreadCount, setUnreadCount] = useState(() =>
-    loadFromStorage().filter((n) => !n.read).length
-  );
+interface NotificationContextValue {
+  notifications: Notification[];
+  unreadCount: number;
+  isConnected: boolean;
+  markAsRead: (id: string) => void;
+  markAllAsRead: () => void;
+  clearAll: () => void;
+}
+
+const NotificationContext = createContext<NotificationContextValue | null>(null);
+
+/**
+ * The single owner of the realtime session: it connects the socket, subscribes
+ * to the notification events once, and holds the list every page reads from.
+ * `Navbar` renders the bell inside this provider, so the handlers are always
+ * registered before any component can display a notification.
+ */
+export const NotificationProvider = ({ children }: { children: ReactNode }) => {
+  const { isAuthenticated, user } = useAuth();
   const client = useApolloClient();
-  type NotificationHandler = (payload: NotificationEventPayload) => void;
-  const handlersRef = useRef<Map<NotificationEventName, NotificationHandler>>(new Map());
+  const [notifications, setNotifications] = useState<Notification[]>(loadFromStorage);
+  const [isConnected, setIsConnected] = useState(() => getSocket()?.connected ?? false);
 
-  const unread = notifications.filter((n) => !n.read).length;
-
-  useEffect(() => {
-    setNotifications(loadFromStorage());
-    setUnreadCount(loadFromStorage().filter((n) => !n.read).length);
-  }, []);
+  useEffect(() => subscribeSocketStatus(setIsConnected), []);
 
   const addNotification = useCallback((payload: NotificationEventPayload) => {
-    const message = composeMessage(payload);
     const notification: Notification = {
       id: `${payload.type}-${payload.bookingId}-${Date.now()}`,
       type: payload.type,
@@ -108,7 +130,7 @@ export const useNotifications = () => {
       startTime: payload.startTime,
       endTime: payload.endTime,
       organizerName: payload.organizerName,
-      message,
+      message: composeMessage(payload),
       timestamp: Date.now(),
       read: false,
       waitlistStartTime: payload.waitlistStartTime,
@@ -116,36 +138,36 @@ export const useNotifications = () => {
       checkedInByName: payload.checkedInByName,
     };
 
-    setNotifications((prev) => {
-      const next = [notification, ...prev].slice(0, MAX_NOTIFICATIONS);
+    setNotifications((previous) => {
+      const next = [notification, ...previous].slice(0, MAX_NOTIFICATIONS);
       saveToStorage(next);
       return next;
     });
-    setUnreadCount((c) => c + 1);
   }, []);
 
   const markAsRead = useCallback((id: string) => {
-    setNotifications((prev) => {
-      const next = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+    setNotifications((previous) => {
+      const target = previous.find((n) => n.id === id);
+      if (!target || target.read) {
+        return previous;
+      }
+      const next = previous.map((n) => (n.id === id ? { ...n, read: true } : n));
       saveToStorage(next);
       return next;
     });
-    setUnreadCount((c) => Math.max(0, c - 1));
   }, []);
 
   const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => {
-      const next = prev.map((n) => ({ ...n, read: true }));
+    setNotifications((previous) => {
+      const next = previous.map((n) => ({ ...n, read: true }));
       saveToStorage(next);
       return next;
     });
-    setUnreadCount(0);
   }, []);
 
   const clearAll = useCallback(() => {
-    setNotifications([]);
-    setUnreadCount(0);
     clearStorage();
+    setNotifications([]);
   }, []);
 
   const handleBookingCreated = useCallback(
@@ -153,25 +175,23 @@ export const useNotifications = () => {
       addNotification(payload);
       client.refetchQueries({ include: [MY_MEETINGS_QUERY] });
     },
-    [addNotification, client]
+    [addNotification, client],
   );
 
   const handleParticipantAdded = useCallback(
     (payload: NotificationEventPayload) => {
       addNotification(payload);
-      client.refetchQueries({ include: [MY_MEETINGS_QUERY] });
-      client.refetchQueries({ include: [BOOKING_DETAILS_QUERY] });
+      client.refetchQueries({ include: [MY_MEETINGS_QUERY, BOOKING_DETAILS_QUERY] });
     },
-    [addNotification, client]
+    [addNotification, client],
   );
 
   const handleParticipantRemoved = useCallback(
     (payload: NotificationEventPayload) => {
       addNotification(payload);
-      client.refetchQueries({ include: [MY_MEETINGS_QUERY] });
-      client.refetchQueries({ include: [BOOKING_DETAILS_QUERY] });
+      client.refetchQueries({ include: [MY_MEETINGS_QUERY, BOOKING_DETAILS_QUERY] });
     },
-    [addNotification, client]
+    [addNotification, client],
   );
 
   const handleCheckIn = useCallback(
@@ -179,49 +199,66 @@ export const useNotifications = () => {
       addNotification(payload);
       client.refetchQueries({ include: [BOOKING_DETAILS_QUERY] });
     },
-    [addNotification, client]
+    [addNotification, client],
   );
 
   const handleWaitlistConverted = useCallback(
     (payload: NotificationEventPayload) => {
       addNotification(payload);
-      client.refetchQueries({ include: [MY_BOOKINGS_QUERY] });
-      client.refetchQueries({ include: [MY_WAITLIST_QUERY] });
+      client.refetchQueries({ include: [MY_BOOKINGS_QUERY, MY_MEETINGS_QUERY, MY_WAITLIST_QUERY] });
     },
-    [addNotification, client]
+    [addNotification, client],
   );
 
   useEffect(() => {
-    const socket = getSocket();
-    if (!socket) {
+    if (!isAuthenticated || !user) {
+      disconnectSocket();
       return;
     }
 
-    const cleanupFns: Array<() => void> = [];
+    // Connect first, then subscribe: `onNotification` binds to the live socket,
+    // so registering earlier would silently drop every event.
+    initSocket();
 
-    cleanupFns.push(onNotification('notification:BOOKING_CREATED', handleBookingCreated) as () => void);
-    cleanupFns.push(onNotification('notification:PARTICIPANT_ADDED', handleParticipantAdded) as () => void);
-    cleanupFns.push(onNotification('notification:PARTICIPANT_REMOVED', handleParticipantRemoved) as () => void);
-    cleanupFns.push(onNotification('notification:CHECK_IN', handleCheckIn) as () => void);
-    cleanupFns.push(onNotification('notification:WAITLIST_CONVERTED', handleWaitlistConverted) as () => void);
+    const unsubscribes = [
+      onNotification('notification:BOOKING_CREATED', handleBookingCreated),
+      onNotification('notification:PARTICIPANT_ADDED', handleParticipantAdded),
+      onNotification('notification:PARTICIPANT_REMOVED', handleParticipantRemoved),
+      onNotification('notification:CHECK_IN', handleCheckIn),
+      onNotification('notification:WAITLIST_CONVERTED', handleWaitlistConverted),
+    ];
 
-    handlersRef.current.set('notification:BOOKING_CREATED', handleBookingCreated);
-    handlersRef.current.set('notification:PARTICIPANT_ADDED', handleParticipantAdded);
-    handlersRef.current.set('notification:PARTICIPANT_REMOVED', handleParticipantRemoved);
-    handlersRef.current.set('notification:CHECK_IN', handleCheckIn);
-    handlersRef.current.set('notification:WAITLIST_CONVERTED', handleWaitlistConverted);
+    return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+  }, [
+    isAuthenticated,
+    user,
+    handleBookingCreated,
+    handleParticipantAdded,
+    handleParticipantRemoved,
+    handleCheckIn,
+    handleWaitlistConverted,
+  ]);
 
-    return () => {
-      cleanupFns.forEach((fn) => fn());
-      handlersRef.current.clear();
-    };
-  }, [handleBookingCreated, handleParticipantAdded, handleParticipantRemoved, handleCheckIn, handleWaitlistConverted]);
+  // The unread count is derived, so it cannot drift from the list it summarises.
+  const value = useMemo<NotificationContextValue>(
+    () => ({
+      notifications,
+      unreadCount: notifications.filter((n) => !n.read).length,
+      isConnected,
+      markAsRead,
+      markAllAsRead,
+      clearAll,
+    }),
+    [notifications, isConnected, markAsRead, markAllAsRead, clearAll],
+  );
 
-  return {
-    notifications,
-    unreadCount: unread,
-    markAsRead,
-    markAllAsRead,
-    clearAll,
-  };
+  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
+};
+
+export const useNotifications = (): NotificationContextValue => {
+  const context = useContext(NotificationContext);
+  if (!context) {
+    throw new Error('useNotifications must be used inside a NotificationProvider.');
+  }
+  return context;
 };

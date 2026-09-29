@@ -1,16 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { LuMail, LuX, LuBell } from 'react-icons/lu';
-import { useNotifications } from '../../realtime/useNotifications';
+import { useNotifications } from '../../realtime/NotificationProvider';
 import { PanelCard, ListRow, EmptyState, PageHeader } from '../../components/common';
 import { layout, typeScale, copy } from '../../theme';
 
 export const NotificationsPage = () => {
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();
-  const [showAll, setShowAll] = useState(false);
-
-  const displayNotifications = showAll ? notifications : notifications.slice(0, 50);
-
   const handleNotificationClick = useCallback((notification: { bookingId: number; id: string }) => {
     markAsRead(notification.id);
   }, [markAsRead]);
@@ -47,15 +43,15 @@ export const NotificationsPage = () => {
 
       <PanelCard
         title="Notification History"
-        sub={`${notifications.length} total ${notifications.length > 50 ? '(showing latest 50)' : ''}`}
+        sub={`${notifications.length} total`}
       >
-        {displayNotifications.length === 0 ? (
+        {notifications.length === 0 ? (
           <EmptyState
             message="No notifications yet. When you're invited to a meeting, added to a booking, or your waitlist entry converts, it will appear here."
           />
         ) : (
           <div className="divide-y divide-rule">
-            {displayNotifications.map((notification) => (
+            {notifications.map((notification) => (
               <ListRow
                 key={notification.id}
                 className={`py-3 ${!notification.read ? 'bg-tintStrong' : ''}`}
@@ -81,17 +77,6 @@ export const NotificationsPage = () => {
           </div>
         )}
 
-        {notifications.length > 50 && !showAll && (
-          <div className="mt-4 pt-4 border-t border-rule text-center">
-            <button
-              type="button"
-              onClick={() => setShowAll(true)}
-              className="text-sm font-medium text-navy hover:text-navySoft"
-            >
-              Show all {notifications.length} notifications
-            </button>
-          </div>
-        )}
       </PanelCard>
     </div>
   );

@@ -14,7 +14,11 @@ export class RoomEquipmentFieldResolver {
     @Root() room: RoomType,
     @Ctx() ctx: AppContext,
   ): Promise<EquipmentType[]> {
-    const equipment = await this.equipmentService.listForRoom(ctx.user, room.id);
+    const equipment = await this.equipmentService.listForRoom(
+      ctx.user,
+      room.id,
+      ctx.loaders,
+    );
     return equipment.map(toEquipmentType);
   }
 }

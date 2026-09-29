@@ -1,4 +1,5 @@
-import { Authorized, FieldResolver, Resolver, Root } from 'type-graphql';
+import { Authorized, Ctx, FieldResolver, Resolver, Root } from 'type-graphql';
+import { AppContext } from '../../../common/context';
 import {
   EmployeeType,
   toEmployeeType,
@@ -12,8 +13,14 @@ export class WaitlistEntryEmployeeFieldResolver {
 
   @FieldResolver(() => EmployeeType)
   @Authorized()
-  async employee(@Root() entry: WaitlistEntryType): Promise<EmployeeType> {
-    const employee = await this.authService.currentUser(entry.employeeId);
+  async employee(
+    @Root() entry: WaitlistEntryType,
+    @Ctx() ctx: AppContext,
+  ): Promise<EmployeeType> {
+    const employee = await this.authService.currentUser(
+      entry.employeeId,
+      ctx.loaders,
+    );
     return toEmployeeType(employee);
   }
 }
