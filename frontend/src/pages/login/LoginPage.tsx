@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthBrandPanel } from '../../components/auth/AuthBrandPanel';
 import { AuthField } from '../../components/auth/AuthField';
@@ -6,6 +6,42 @@ import { AuthTabs, type AuthMode } from '../../components/auth/AuthTabs';
 import { RoleSelector, type AuthRole } from '../../components/auth/RoleSelector';
 import { useAuth } from '../../hooks/useAuth';
 import { getGraphQLErrorMessage } from '../../utils/errors';
+import {
+  all,
+  email,
+  matches,
+  minLength,
+  required,
+  validate,
+  type FormErrors,
+  type FormValues,
+  type RuleSet,
+} from '../../utils/validation';
+
+const EMPTY_FORM: FormValues = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+};
+
+const RULES: Record<AuthMode, RuleSet> = {
+  login: {
+    email: all(required('Email'), email()),
+    password: required('Password'),
+  },
+  register: {
+    firstName: required('First Name'),
+    lastName: required('Last Name'),
+    email: all(required('Email'), email()),
+    password: all(required('Password'), minLength('Password', 8)),
+    confirmPassword: all(
+      required('Confirm Password'),
+      matches('Passwords', (values) => values.password),
+    ),
+  },
+};
 
 const COPY = {
   login: {
@@ -33,13 +69,13 @@ export const LoginPage = () => {
 
   const [mode, setMode] = useState<AuthMode>('login');
   const [role, setRole] = useState<AuthRole>('employee');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [values, setValues] = useState<FormValues>(EMPTY_FORM);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [attempted, setAttempted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const rules = useMemo(() => RULES[mode], [mode]);
 
   useEffect(() => {
     if (user) {
@@ -47,17 +83,33 @@ export const LoginPage = () => {
     }
   }, [user, navigate]);
 
+  // Before the first submit a pristine field stays quiet; from then on every
+  // keystroke re-checks the form, so a message clears the moment it is fixed.
+  useEffect(() => {
+    if (attempted) {
+      setErrors(validate(values, rules));
+    }
+  }, [attempted, values, rules]);
+
   const switchMode = (nextMode: AuthMode) => {
     setMode(nextMode);
+    setErrors({});
+    setAttempted(false);
     setError(null);
+  };
+
+  const setField = (name: string, value: string) => {
+    setValues((current) => ({ ...current, [name]: value }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    setAttempted(true);
 
-    if (mode === 'register' && password !== confirmPassword) {
-      setError('Passwords do not match.');
+    const nextErrors = validate(values, rules);
+    setErrors(nextErrors);
+    if (Object.values(nextErrors).some(Boolean)) {
       return;
     }
 
@@ -65,12 +117,17 @@ export const LoginPage = () => {
     try {
       if (mode === 'login') {
         if (role === 'admin') {
-          await adminLogIn(email, password);
+          await adminLogIn(values.email, values.password);
         } else {
-          await logIn(email, password);
+          await logIn(values.email, values.password);
         }
       } else {
-        await signUp({ firstName, lastName, email, password });
+        await signUp({
+          firstName: values.firstName,
+          lastName: values.lastName,
+          email: values.email,
+          password: values.password,
+        });
       }
       navigate('/', { replace: true });
     } catch (err) {
@@ -96,7 +153,7 @@ export const LoginPage = () => {
             </h1>
             <p className="mt-3 text-sm text-copy">{copy.subheading}</p>
 
-            <form className="mt-7" onSubmit={handleSubmit}>
+            <form className="mt-7" onSubmit={handleSubmit} noValidate>
               {mode === 'login' ? (
                 <>
                   <RoleSelector value={role} onChange={setRole} />
@@ -106,8 +163,9 @@ export const LoginPage = () => {
                       label="Email"
                       name="email"
                       type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      value={values.email}
+                      onChange={(e) => setField('email', e.target.value)}
+                      error={errors.email}
                       required
                       autoComplete="email"
                     />
@@ -118,8 +176,9 @@ export const LoginPage = () => {
                       label="Password"
                       name="password"
                       type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      value={values.password}
+                      onChange={(e) => setField('password', e.target.value)}
+                      error={errors.password}
                       required
                       autoComplete="current-password"
                     />
@@ -136,30 +195,30 @@ export const LoginPage = () => {
                   </div>
                 </>
               ) : (
-                <>
+                <div className="mt-6 space-y-4">
                   <AuthField
                     label="First Name"
                     hideLabel
                     name="firstName"
                     placeholder="First Name"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
+                    value={values.firstName}
+                    onChange={(e) => setField('firstName', e.target.value)}
+                    error={errors.firstName}
                     required
                     maxLength={50}
                     autoComplete="given-name"
-                    className="mb-4"
                   />
                   <AuthField
                     label="Last Name"
                     hideLabel
                     name="lastName"
                     placeholder="Last Name"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
+                    value={values.lastName}
+                    onChange={(e) => setField('lastName', e.target.value)}
+                    error={errors.lastName}
                     required
                     maxLength={50}
                     autoComplete="family-name"
-                    className="mb-4"
                   />
                   <AuthField
                     label="Email"
@@ -167,11 +226,11 @@ export const LoginPage = () => {
                     name="email"
                     type="email"
                     placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={values.email}
+                    onChange={(e) => setField('email', e.target.value)}
+                    error={errors.email}
                     required
                     autoComplete="email"
-                    className="mb-4"
                   />
                   <AuthField
                     label="Password"
@@ -179,12 +238,12 @@ export const LoginPage = () => {
                     name="password"
                     type="password"
                     placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={values.password}
+                    onChange={(e) => setField('password', e.target.value)}
+                    error={errors.password}
                     required
                     minLength={8}
                     autoComplete="new-password"
-                    className="mb-4"
                   />
                   <AuthField
                     label="Confirm Password"
@@ -192,12 +251,13 @@ export const LoginPage = () => {
                     name="confirmPassword"
                     type="password"
                     placeholder="Confirm Password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    value={values.confirmPassword}
+                    onChange={(e) => setField('confirmPassword', e.target.value)}
+                    error={errors.confirmPassword}
                     required
                     autoComplete="new-password"
                   />
-                </>
+                </div>
               )}
 
               {error && (

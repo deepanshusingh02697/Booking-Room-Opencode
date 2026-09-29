@@ -3021,3 +3021,49 @@ than renumbered, so existing FR references stay valid.
 (frontend), `npm run build` (frontend) all green; `npm run test -w backend` skips 97 tests with no
 database contact; `npm run test:db -w backend` passes 97/97 and the database was re-seeded
 afterwards. The DataLoader test asserts 12 loads across four loaders issue 4 queries.
+
+### 9.13 Decided 2026-09-29 — client-side validation on the login/register form
+
+**The form had a rendering path for field errors and nothing feeding it.** `AuthField` has taken an
+`error` prop since it was written (`field.controlError` border + `field.error` text), but the page
+never passed one: an empty submit went straight to the network, and the only feedback was the
+top-of-form banner — which for register also had to carry the password mismatch, a rule the rest of
+the form had no way to express. Native `required`/`minLength` attributes were doing the work, which
+means the browser showed one message, in its own bubble, in the browser's own words, and never all
+of them at once.
+
+**New `frontend/src/utils/validation.ts`, hand-rolled and dependency-free** (chosen over
+zod + react-hook-form; the repo is plain React state and the rule count did not justify a schema
+layer). A `Rule` is `(value, allValues) => message | undefined`, composed with `all(required('Email'),
+email())` and `matches('Passwords', v => v.password)` for the cross-field check; `validate` runs a
+whole `RuleSet` in one pass, which is what makes "show every error at once" fall out of the design
+instead of needing a loop at the call site. The rules mirror `SignUpInput` / `LogInInput` exactly —
+required after trim, email format, password ≥ 8, names ≤ 50 via the existing `maxLength` — so the
+client and the server reject the same input. `minLength` measures the raw value, not the trimmed one:
+the backend measures the raw password, and trimming would have let a padded short password through
+the client and into a server error.
+
+**The pre-submit / post-submit split is the behaviour, not an implementation detail.** A pristine
+form stays quiet; the first submit validates everything and refuses to call the mutation if any
+field failed; from then on an effect re-validates on every keystroke, so a message clears the moment
+its field is fixed and the button is not disabled behind a rule the user cannot see. The form is
+`noValidate` — the attributes stay for semantics (`required` still reaches assistive tech) but the
+browser is not allowed to pre-empt the page's own messages.
+
+**Server errors stay in the banner.** `AuthService` throws a plain `ConflictError` / `UnauthenticatedError`
+with no `extensions.code`, so "An account with this email already exists." cannot be attributed to a
+field without matching on message text. Adding a field code to the backend is the correct fix if that
+is ever wanted; for now the banner is the honest place for it, and the two failure classes stay
+visually distinct — a shape problem sits under its input, a server rejection sits above the button.
+
+**Also:** the register fields carried `className="mb-4"` on the `<input>`, so an error would have
+rendered *below the margin* — spacing moved to a `space-y-4` wrapper. `AuthField` now gives the error
+an `id` and points `aria-describedby` at it, so the message is announced with the field instead of
+only being visible.
+
+**Verified:** `npm run typecheck`, `npm run lint` (0 errors; the 9 `react-hooks/exhaustive-deps`
+warnings are pre-existing and in other pages), `npm run build` green; `npm run test -w backend`
+skips all 98 tests with no database contact (no frontend test harness exists, so the rules were
+exercised through a throwaway script outside the repo: empty register → all 5 messages, whitespace →
+required, `nope` → valid-email, `abc` → min-8, mismatch → do-not-match, valid input → none). The DB
+suites were not run: this change touches no backend code.

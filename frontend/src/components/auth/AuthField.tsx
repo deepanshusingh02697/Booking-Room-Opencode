@@ -53,6 +53,7 @@ export const AuthField = ({
   ...rest
 }: AuthFieldProps) => {
   const inputId = id ?? rest.name;
+  const errorId = error ? `${inputId}-error` : undefined;
   const [revealed, setRevealed] = useState(false);
   const isPassword = type === 'password';
   const canReveal = isPassword && !rest.disabled;
@@ -73,6 +74,7 @@ export const AuthField = ({
           id={inputId}
           type={canReveal && revealed ? 'text' : type}
           aria-invalid={error ? true : undefined}
+          aria-describedby={rest['aria-describedby'] ?? errorId}
           className={`${field.control} ${error ? field.controlError : field.controlOk} ${
             canReveal ? 'pr-11' : ''
           } ${className}`}
@@ -89,7 +91,11 @@ export const AuthField = ({
           </button>
         )}
       </div>
-      {error && <p className={field.error}>{error}</p>}
+      {error && (
+        <p id={errorId} className={field.error}>
+          {error}
+        </p>
+      )}
     </div>
   );
 };
