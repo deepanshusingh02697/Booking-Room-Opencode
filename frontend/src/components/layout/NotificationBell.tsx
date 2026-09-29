@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { LuBell, LuBellOff } from 'react-icons/lu';
 import { useNotifications } from '../../realtime/NotificationProvider';
-import { layout, typeScale } from '../../theme';
+import { typeScale } from '../../theme';
 import { NavLink } from 'react-router-dom';
 
 export const NotificationBell = () => {

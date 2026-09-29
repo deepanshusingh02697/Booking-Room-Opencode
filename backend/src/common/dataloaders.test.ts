@@ -3,7 +3,6 @@ import { expect, beforeAll, afterAll, it } from 'vitest';
 import type { Logger } from 'typeorm';
 import { createLoaders } from './dataloaders';
 import { AppDataSource } from '../config/data-source';
-import { DB_TESTS_ENABLED, testDataSource } from '../test/data-source';
 import {
   createTestBooking,
   createTestEmployee,

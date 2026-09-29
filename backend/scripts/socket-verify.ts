@@ -57,13 +57,13 @@ const sameInstant = (value: string | undefined, expected: Date): boolean =>
 
 // ---------------------------------------------------------------- GraphQL ---
 
-type GqlResponse = { data?: Record<string, any>; errors?: { message: string }[] };
+type GqlResponse = { data?: Record<string, unknown>; errors?: { message: string }[] };
 
 const graphql = async (
   session: Session | null,
   query: string,
   variables: Record<string, unknown> = {},
-): Promise<Record<string, any>> => {
+): Promise<Record<string, unknown>> => {
   const response = await fetch(GRAPHQL_URL, {
     method: 'POST',
     headers: {
@@ -103,7 +103,7 @@ const logIn = async (person: Person): Promise<Session> => {
   if (!cookie) {
     throw new Error(`logIn returned no session cookie for ${email}`);
   }
-  const user = (body.data as any).logIn;
+  const user = body.data?.logIn as { id: number; firstName: string; lastName: string };
   return {
     token: decodeURIComponent(cookie.split(';')[0].replace('token=', '')),
     userId: user.id,

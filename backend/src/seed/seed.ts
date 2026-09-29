@@ -35,7 +35,7 @@ const main = async () => {
 
   const hashPassword = async (pw: string) => bcrypt.hash(pw, 10);
 
-  const admin = await employeeRepo.save(
+  await employeeRepo.save(
     employeeRepo.create({
       firstName: 'Deepanshu',
       lastName: 'Singh',

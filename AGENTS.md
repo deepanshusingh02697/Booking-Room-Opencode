@@ -8,7 +8,8 @@ the thing to fix.
 
 Meeting Room Intelligence — a full-stack meeting-room booking system. TypeScript monorepo
 (Turbo + npm workspaces): `backend` (Express + Apollo GraphQL + TypeORM + Socket.IO + PostgreSQL),
-`frontend` (React + Vite + Apollo Client + Tailwind). No CI, no lint config, no frontend tests.
+`frontend` (React + Vite + Apollo Client + Tailwind). No CI, no frontend tests. Lint is a root
+ESLint flat config (`eslint.config.mjs`, `npm run lint` from the root).
 
 ## Source of truth — read, do not duplicate
 
@@ -25,12 +26,14 @@ content here.
 
 ```bash
 npm run typecheck          # both workspaces
+npm run lint               # root ESLint flat config, both workspaces
 npm run build              # both workspaces
 npm run test -w backend    # safe: skips the DB suites, opens no connection
 npm run test:db -w backend # DESTRUCTIVE — see below
 ```
 
-There is no lint step; do not invent one uninvited.
+Lint exits 0 with `react-hooks/exhaustive-deps` warnings; fixing those changes memo
+behaviour, so do it only when asked. Do not add lint rules or plugins uninvited.
 
 ## Architecture — who owns what
 

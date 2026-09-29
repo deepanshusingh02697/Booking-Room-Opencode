@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { LuMail, LuX, LuBell } from 'react-icons/lu';
+import { LuMail } from 'react-icons/lu';
 import { useNotifications } from '../../realtime/NotificationProvider';
 import { PanelCard, ListRow, EmptyState, PageHeader } from '../../components/common';
-import { layout, typeScale, copy } from '../../theme';
+import { layout, typeScale } from '../../theme';
 
 export const NotificationsPage = () => {
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();

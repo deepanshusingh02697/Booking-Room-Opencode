@@ -10,13 +10,19 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
+    "lint": "eslint .",
     "test": "turbo run test",
     "test:db": "npm run test:db -w backend",
     "dev:backend": "npm run dev -w backend",
     "dev:frontend": "npm run dev -w frontend"
   },
   "devDependencies": {
-    "turbo": "^2.3.3"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "turbo": "^2.3.3",
+    "typescript-eslint": "^8.71.0"
   },
   "packageManager": "npm@10.2.4"
 }

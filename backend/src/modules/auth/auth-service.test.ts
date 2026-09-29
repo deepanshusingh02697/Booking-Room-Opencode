@@ -8,20 +8,17 @@ import {
   truncateTables,
 } from '../../test/test-utils';
 import { AuthService } from './services/auth-service';
-import { EmployeeRepository } from './repositories/employee-repository';
 import { UserRole } from './entities/employee';
 import { ConflictError, UnauthenticatedError } from '../../common/errors';
 import { hashPassword } from './utils/password';
 
 describeDb('AuthService - Critical Rules', () => {
   let authService: AuthService;
-  let employeeRepo: EmployeeRepository;
 
   beforeEach(async () => {
     await truncateTables(testDataSource);
 
     authService = new AuthService();
-    employeeRepo = new EmployeeRepository();
   });
 
   describe('signUp', () => {

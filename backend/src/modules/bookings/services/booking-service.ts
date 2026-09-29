@@ -7,7 +7,7 @@ import {
   ValidationError,
 } from '../../../common/errors';
 import { AppDataSource } from '../../../config/data-source';
-import { Employee, UserRole } from '../../auth/entities/employee';
+import { UserRole } from '../../auth/entities/employee';
 import { EmployeeRepository } from '../../auth/repositories/employee-repository';
 import { CheckInRepository } from '../../checkin/repositories/check-in-repository';
 import { Maintenance } from '../../maintenance/entities/maintenance';
