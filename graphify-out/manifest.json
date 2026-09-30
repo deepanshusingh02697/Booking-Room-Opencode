@@ -1494,10 +1494,10 @@
     "semantic_hash": "5bc7c819f494c1807dd0256e168db4da"
   },
   "AGENTS.md": {
-    "mtime": 1790695730.3121765,
-    "seen": 1790704975.4006348,
-    "ast_hash": "502adf5608976a9c618b0b27ee28b812",
-    "semantic_hash": "502adf5608976a9c618b0b27ee28b812"
+    "mtime": 1790707759.561771,
+    "seen": 1790708234.820517,
+    "ast_hash": "389b7ff4ba89ef67b39db9f9b611a472",
+    "semantic_hash": "389b7ff4ba89ef67b39db9f9b611a472"
   },
   "README.md": {
     "mtime": 1790695730.3158672,
@@ -1528,5 +1528,17 @@
     "seen": 1790704975.4006422,
     "ast_hash": "3e46bbcf001fad9b193eff45250da626",
     "semantic_hash": "3e46bbcf001fad9b193eff45250da626"
+  },
+  ".opencode/opencode.json": {
+    "mtime": 1790707804.8768532,
+    "seen": 1790708234.819229,
+    "ast_hash": "e5f74d14a81702b55bdf53b33ec991d7",
+    "semantic_hash": "e5f74d14a81702b55bdf53b33ec991d7"
+  },
+  ".opencode/plugins/graphify.js": {
+    "mtime": 1790707784.0903423,
+    "seen": 1790708234.819242,
+    "ast_hash": "3ea725724bc8ebe483c9f13d6aa1124f",
+    "semantic_hash": "3ea725724bc8ebe483c9f13d6aa1124f"
   }
 }
